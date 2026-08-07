@@ -1,9 +1,9 @@
-node_modules/
-dist/
-output/
+node_modules
+dist
+output
 public/*.mp3
 .env
 .env.*
 !.env.example
+.git
 *.log
-.DS_Store
