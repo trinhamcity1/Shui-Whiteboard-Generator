@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, staticFile } from "remotion";
-import { TitleCard } from "../components/TitleCard.js";
-import { BulletList } from "../components/BulletList.js";
+import { TitleCard } from "../components/TitleCard";
+import { BulletList } from "../components/BulletList";
 
 export type TestSceneProps = {
   titleText: string;

@@ -1,4 +1,4 @@
-import type { TTSProvider, TTSResult, WordTiming } from "./types.js";
+import type { TTSProvider, TTSResult, WordTiming } from "./types";
 
 // Published ElevenLabs rate is closer to $0.18 per 1,000 characters on
 // paid tiers. This is a planning-stage estimate for the cost printout,

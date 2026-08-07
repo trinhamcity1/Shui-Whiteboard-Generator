@@ -4,9 +4,9 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
-import { ElevenLabsTTSProvider } from "../src/tts/elevenlabs.js";
-import { buildJobCost, printJobCost } from "../src/cost/index.js";
-import type { TestSceneInputProps } from "../src/render/Root.js";
+import { ElevenLabsTTSProvider } from "../src/tts/elevenlabs";
+import { buildJobCost, printJobCost } from "../src/cost/index";
+import type { TestSceneInputProps } from "../src/render/Root";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");

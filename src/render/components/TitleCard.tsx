@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { DrawOn } from "./DrawOn.js";
+import { DrawOn } from "./DrawOn";
 
 export function TitleCard({ text, startFrame }: { text: string; startFrame: number }) {
   return (

@@ -1,6 +1,6 @@
 import React from "react";
 import { Composition } from "remotion";
-import { TestScene, type TestSceneProps } from "./compositions/TestScene.js";
+import { TestScene, type TestSceneProps } from "./compositions/TestScene";
 
 const FPS = 30;
 

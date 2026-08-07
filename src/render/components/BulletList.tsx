@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useVideoConfig } from "remotion";
-import { DrawOn } from "./DrawOn.js";
+import { DrawOn } from "./DrawOn";
 
 export function BulletList({ items, startFrame }: { items: string[]; startFrame: number }) {
   const { fps } = useVideoConfig();
