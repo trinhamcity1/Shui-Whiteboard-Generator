@@ -17,27 +17,19 @@ export interface RenderJobResult {
   uploadError?: string;
 }
 
-export async function bundleRenderer(entryPointDir: string): Promise<{ bundleLocation: string; publicDir: string }> {
-  const publicDir = path.join(entryPointDir, "public");
-  await fs.mkdir(publicDir, { recursive: true });
-  const bundleLocation = await bundle({
-    entryPoint: path.join(entryPointDir, "src/render/index.ts"),
-    publicDir,
-  });
-  return { bundleLocation, publicDir };
-}
-
 /**
  * Runs one job through the full Phase 1 pipeline: resolve + validate the
  * SceneDocument, synthesize narration, check timing drift, render, upload.
- * Shared by scripts/render-local.ts (one job) and scripts/render-batch.ts
- * (several jobs reusing the same Remotion bundle for speed).
+ *
+ * Bundles fresh on every call, *after* the narration audio is written to
+ * public/ — Remotion's bundle() snapshots public/ into its own temp dir at
+ * call time, so bundling before the audio file exists serves a stale
+ * snapshot that 404s on the audio it doesn't know about yet.
  */
 export async function renderSceneDocumentJob(args: {
   request: SceneDocumentRequest;
   apiKey: string;
-  bundleLocation: string;
-  publicDir: string;
+  rootDir: string;
   outputLocation: string;
   uploadKey: string;
   audioFileName?: string;
@@ -49,21 +41,28 @@ export async function renderSceneDocumentJob(args: {
 
   const timingResult = checkSceneTiming(sceneDocument, ttsResult.durationSeconds);
 
+  const publicDir = path.join(args.rootDir, "public");
+  await fs.mkdir(publicDir, { recursive: true });
   const audioFileName = args.audioFileName ?? `tts-audio-${Date.now()}.mp3`;
-  await fs.writeFile(path.join(args.publicDir, audioFileName), ttsResult.audioBuffer);
+  await fs.writeFile(path.join(publicDir, audioFileName), ttsResult.audioBuffer);
+
+  const bundleLocation = await bundle({
+    entryPoint: path.join(args.rootDir, "src/render/index.ts"),
+    publicDir,
+  });
 
   const totalDurationSeconds = Math.max(timingResult.sceneEndSeconds, ttsResult.durationSeconds) + 1;
   const inputProps: SceneInputProps = { sceneDocument, audioFileName, totalDurationSeconds };
 
   const renderStart = Date.now();
   const composition = await selectComposition({
-    serveUrl: args.bundleLocation,
+    serveUrl: bundleLocation,
     id: "SceneRenderer",
     inputProps,
   });
   await renderMedia({
     composition,
-    serveUrl: args.bundleLocation,
+    serveUrl: bundleLocation,
     codec: "h264",
     outputLocation: args.outputLocation,
     inputProps,

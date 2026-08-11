@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { printJobCost, type JobCost } from "../src/cost/index";
 import { printTimingWarnings } from "../src/render/timing";
-import { bundleRenderer, renderSceneDocumentJob } from "../src/pipeline/renderJob";
+import { renderSceneDocumentJob } from "../src/pipeline/renderJob";
 import type { SceneDocumentRequest } from "../src/pipeline/resolveSceneDocument";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -197,9 +197,6 @@ async function main() {
     throw new Error("ELEVENLABS_API_KEY is not set. Fill it in .env before running this script.");
   }
 
-  console.log(`Bundling Remotion project once, reused across all ${JOBS.length} jobs...`);
-  const { bundleLocation, publicDir } = await bundleRenderer(ROOT);
-
   const outputDir = path.join(ROOT, "output", "batch");
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -210,8 +207,7 @@ async function main() {
     const result = await renderSceneDocumentJob({
       request: job.request,
       apiKey,
-      bundleLocation,
-      publicDir,
+      rootDir: ROOT,
       outputLocation: path.join(outputDir, `${job.name}.mp4`),
       uploadKey: `local-tests/batch/${job.name}-${Date.now()}.mp4`,
       audioFileName: `tts-audio-${job.name}.mp3`,

@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { printJobCost } from "../src/cost/index";
 import { printTimingWarnings } from "../src/render/timing";
-import { bundleRenderer, renderSceneDocumentJob } from "../src/pipeline/renderJob";
+import { renderSceneDocumentJob } from "../src/pipeline/renderJob";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
@@ -61,18 +61,14 @@ async function main() {
     throw new Error("ELEVENLABS_API_KEY is not set. Fill it in .env before running this script.");
   }
 
-  console.log("1/3 — Bundling Remotion project...");
-  const { bundleLocation, publicDir } = await bundleRenderer(ROOT);
-
-  console.log("2/3 — Resolving SceneDocument, synthesizing narration, and rendering...");
+  console.log("Resolving SceneDocument, synthesizing narration, bundling, and rendering...");
   const outputDir = path.join(ROOT, "output");
   await fs.mkdir(outputDir, { recursive: true });
 
   const result = await renderSceneDocumentJob({
     request: { scenes: SCENE_DOCUMENT },
     apiKey,
-    bundleLocation,
-    publicDir,
+    rootDir: ROOT,
     outputLocation: path.join(outputDir, "test-1.mp4"),
     uploadKey: `local-tests/test-1-${Date.now()}.mp4`,
     audioFileName: "tts-audio.mp3",
@@ -86,7 +82,7 @@ async function main() {
     console.warn(`   ⚠️  R2 upload skipped/failed: ${result.uploadError}`);
   }
 
-  console.log("3/3 — Cost breakdown");
+  console.log("Cost breakdown");
   printJobCost(result.jobCost);
 }
 
