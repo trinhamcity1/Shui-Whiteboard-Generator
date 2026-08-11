@@ -2,31 +2,58 @@ import "dotenv/config";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
-import { ElevenLabsTTSProvider } from "../src/tts/elevenlabs";
-import { buildJobCost, printJobCost } from "../src/cost/index";
-import type { TestSceneInputProps } from "../src/render/Root";
-
+import { printJobCost } from "../src/cost/index";
+import { printTimingWarnings } from "../src/render/timing";
+import { bundleRenderer, renderSceneDocumentJob } from "../src/pipeline/renderJob";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
-// A real Shui citizenship-exam quick fact, used as the first real content
-// this project ever renders instead of throwaway lorem ipsum.
-const NARRATION_SCRIPT =
-  "The Constitution can be changed. When we change the Constitution, we call it an amendment. " +
-  "The Founding Fathers wrote the first ten amendments together. We call these first ten amendments " +
-  "the Bill of Rights. The Bill of Rights protects your basic freedoms as an American, like freedom " +
-  "of speech, freedom of religion, and the right to a fair trial.";
+const VOICE_ID = process.env.TTS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
 
-const TITLE_TEXT = "The Bill of Rights";
-const BULLET_ITEMS = [
-  "The first 10 amendments to the Constitution",
-  "Protects freedom of speech and religion",
-  "Guarantees the right to a fair trial",
-];
-
-const VOICE_ID = process.env.TTS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM"; // ElevenLabs "Rachel"
+// A real Shui citizenship-exam quick fact, pre-authored as a full
+// SceneDocument (the path Shui's own Phase 7 will use once a human has
+// reviewed a script's visual plan) — exercises the whole Phase 1 pipeline:
+// schema validation, multiple action types, timing checks, R2 upload.
+const SCENE_DOCUMENT = {
+  schemaVersion: 1,
+  narrationScript:
+    "The Constitution can be changed. When we change the Constitution, we call it an amendment. " +
+    "The Founding Fathers wrote the first ten amendments together. We call these first ten amendments " +
+    "the Bill of Rights. The Bill of Rights protects your basic freedoms as an American, like freedom " +
+    "of speech, freedom of religion, and the right to a fair trial.",
+  voice: VOICE_ID,
+  styleVariant: "classic-whiteboard",
+  orientation: "vertical",
+  actions: [
+    { id: "title", type: "titleCard", atSeconds: 0, durationSeconds: 4, text: "The Bill of Rights" },
+    {
+      id: "facts",
+      type: "bulletList",
+      atSeconds: 4,
+      durationSeconds: 10,
+      items: [
+        "The first 10 amendments to the Constitution",
+        "Protects freedom of speech and religion",
+        "Guarantees the right to a fair trial",
+      ],
+    },
+    {
+      id: "callout",
+      type: "iconCallout",
+      atSeconds: 14,
+      durationSeconds: 6,
+      icon: "scale-of-justice",
+      text: "Written by the Founding Fathers",
+    },
+    {
+      id: "timeline",
+      type: "timeline",
+      atSeconds: 20,
+      durationSeconds: 6,
+      timelineEntries: [{ year: 1791, label: "Bill of Rights ratified" }],
+    },
+  ],
+};
 
 async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -34,68 +61,33 @@ async function main() {
     throw new Error("ELEVENLABS_API_KEY is not set. Fill it in .env before running this script.");
   }
 
-  console.log("1/4 — Synthesizing narration via ElevenLabs...");
-  const tts = new ElevenLabsTTSProvider(apiKey);
-  const ttsResult = await tts.synthesize(NARRATION_SCRIPT, { voice: VOICE_ID });
-  console.log(
-    `   done: ${ttsResult.durationSeconds.toFixed(1)}s of audio, ${ttsResult.characters} characters, ${
-      ttsResult.wordTimings?.length ?? 0
-    } word timings`,
-  );
+  console.log("1/3 — Bundling Remotion project...");
+  const { bundleLocation, publicDir } = await bundleRenderer(ROOT);
 
-  const publicDir = path.join(ROOT, "public");
-  await fs.mkdir(publicDir, { recursive: true });
-  const audioFileName = "tts-audio.mp3";
-  await fs.writeFile(path.join(publicDir, audioFileName), ttsResult.audioBuffer);
-
-  console.log("2/4 — Bundling Remotion project...");
-  const bundleLocation = await bundle({
-    entryPoint: path.join(ROOT, "src/render/index.ts"),
-    publicDir,
-  });
-
-  const titleDurationSeconds = 3;
-  const totalDurationSeconds = Math.max(ttsResult.durationSeconds + 1, titleDurationSeconds + 3);
-
-  const inputProps: TestSceneInputProps = {
-    titleText: TITLE_TEXT,
-    bulletItems: BULLET_ITEMS,
-    titleDurationInFrames: titleDurationSeconds * 30,
-    audioFileName,
-    totalDurationSeconds,
-  };
-
-  console.log("3/4 — Rendering video...");
-  const renderStart = Date.now();
-
-  const composition = await selectComposition({
-    serveUrl: bundleLocation,
-    id: "TestScene",
-    inputProps,
-  });
-
+  console.log("2/3 — Resolving SceneDocument, synthesizing narration, and rendering...");
   const outputDir = path.join(ROOT, "output");
   await fs.mkdir(outputDir, { recursive: true });
-  const outputLocation = path.join(outputDir, "test-1.mp4");
 
-  await renderMedia({
-    composition,
-    serveUrl: bundleLocation,
-    codec: "h264",
-    outputLocation,
-    inputProps,
+  const result = await renderSceneDocumentJob({
+    request: { scenes: SCENE_DOCUMENT },
+    apiKey,
+    bundleLocation,
+    publicDir,
+    outputLocation: path.join(outputDir, "test-1.mp4"),
+    uploadKey: `local-tests/test-1-${Date.now()}.mp4`,
+    audioFileName: "tts-audio.mp3",
   });
 
-  const renderWallClockSeconds = (Date.now() - renderStart) / 1000;
-  console.log(`   done in ${renderWallClockSeconds.toFixed(1)}s -> ${outputLocation}`);
+  printTimingWarnings(result.timingWarnings);
+  console.log(`   done -> ${result.outputLocation}`);
+  if (result.uploadUrl) {
+    console.log(`   uploaded: ${result.uploadUrl}`);
+  } else {
+    console.warn(`   ⚠️  R2 upload skipped/failed: ${result.uploadError}`);
+  }
 
-  console.log("4/4 — Cost breakdown");
-  const jobCost = buildJobCost({
-    ttsCharacters: ttsResult.characters,
-    ttsCostUsd: ttsResult.costUsd,
-    renderWallClockSeconds,
-  });
-  printJobCost(jobCost);
+  console.log("3/3 — Cost breakdown");
+  printJobCost(result.jobCost);
 }
 
 main().catch((err) => {

@@ -1,33 +1,46 @@
 import React from "react";
 import { Composition } from "remotion";
-import { TestScene, type TestSceneProps } from "./compositions/TestScene";
+import { SceneRenderer, type SceneRendererProps } from "./compositions/SceneRenderer";
+import type { SceneDocument } from "../schema/scene";
 
 const FPS = 30;
+const VERTICAL = { width: 1080, height: 1920 };
+const HORIZONTAL = { width: 1920, height: 1080 };
 
-export type TestSceneInputProps = TestSceneProps & {
+export type SceneInputProps = SceneRendererProps & Record<string, unknown> & {
   totalDurationSeconds: number;
+};
+
+const DEFAULT_SCENE_DOCUMENT: SceneDocument = {
+  schemaVersion: 1,
+  narrationScript: "",
+  voice: "",
+  styleVariant: "classic-whiteboard",
+  orientation: "vertical",
+  actions: [],
 };
 
 export function RemotionRoot() {
   return (
     <Composition
-      id="TestScene"
-      component={TestScene}
+      id="SceneRenderer"
+      component={SceneRenderer}
       fps={FPS}
-      width={1080}
-      height={1920}
+      width={VERTICAL.width}
+      height={VERTICAL.height}
       durationInFrames={FPS * 60}
       defaultProps={{
-        titleText: "",
-        bulletItems: [],
-        titleDurationInFrames: FPS * 3,
+        sceneDocument: DEFAULT_SCENE_DOCUMENT,
         audioFileName: "tts-audio.mp3",
         totalDurationSeconds: 60,
-      } satisfies TestSceneInputProps}
+      } satisfies SceneInputProps}
       calculateMetadata={async ({ props }) => {
-        const { totalDurationSeconds } = props as TestSceneInputProps;
+        const { totalDurationSeconds, sceneDocument } = props as SceneInputProps;
+        const dimensions = sceneDocument.orientation === "horizontal" ? HORIZONTAL : VERTICAL;
         return {
           durationInFrames: Math.max(1, Math.round(totalDurationSeconds * FPS)),
+          width: dimensions.width,
+          height: dimensions.height,
         };
       }}
     />

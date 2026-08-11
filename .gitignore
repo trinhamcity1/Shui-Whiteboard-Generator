@@ -1,7 +1,7 @@
 node_modules/
 dist/
 output/
-public/*.mp3
+public/tts-audio*.mp3
 .env
 .env.*
 !.env.example

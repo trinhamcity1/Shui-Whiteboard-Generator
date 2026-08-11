@@ -9,6 +9,7 @@
   },
   "scripts": {
     "render-local": "tsx scripts/render-local.ts",
+    "render-batch": "tsx scripts/render-batch.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -16,6 +17,7 @@
     "@remotion/bundler": "^4.0.190",
     "@remotion/renderer": "^4.0.190",
     "@aws-sdk/client-s3": "^3.665.0",
+    "@aws-sdk/s3-request-presigner": "^3.665.0",
     "dotenv": "^16.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
