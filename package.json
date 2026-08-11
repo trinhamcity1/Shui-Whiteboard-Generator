@@ -10,6 +10,8 @@
   "scripts": {
     "render-local": "tsx scripts/render-local.ts",
     "render-batch": "tsx scripts/render-batch.ts",
+    "serve": "tsx src/api/server.ts",
+    "create-api-key": "tsx scripts/create-api-key.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -18,13 +20,17 @@
     "@remotion/renderer": "^4.0.190",
     "@aws-sdk/client-s3": "^3.665.0",
     "@aws-sdk/s3-request-presigner": "^3.665.0",
+    "@google-cloud/tasks": "^5.5.1",
     "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "firebase-admin": "^12.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "remotion": "^4.0.190",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

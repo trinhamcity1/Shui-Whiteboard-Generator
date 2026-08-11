@@ -32,4 +32,5 @@ RUN npm install
 
 COPY . .
 
-CMD ["npm", "run", "render-local"]
+EXPOSE 8080
+CMD ["npm", "run", "serve"]

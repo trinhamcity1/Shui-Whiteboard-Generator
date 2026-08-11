@@ -92,14 +92,23 @@ export type SceneDocument = z.infer<typeof SceneDocument>;
 /**
  * Parses and validates a SceneDocument, throwing a single readable error
  * (not a raw Zod stack) if it's malformed. Callers that need the raw
- * ZodError (e.g. the API layer in Phase 2, to build a `{loc, msg}` body)
- * should call SceneDocument.safeParse directly instead.
+ * ZodError. Throws SceneValidationError, which carries the issues in the
+ * {loc, msg} shape the Phase 2 API needs for its 422 response body.
  */
+export class SceneValidationError extends Error {
+  issues: Array<{ loc: (string | number)[]; msg: string }>;
+
+  constructor(issues: Array<{ loc: (string | number)[]; msg: string }>) {
+    super(`Invalid SceneDocument: ${issues.map((i) => `${i.loc.join(".")}: ${i.msg}`).join("; ")}`);
+    this.name = "SceneValidationError";
+    this.issues = issues;
+  }
+}
+
 export function parseSceneDocument(input: unknown): SceneDocument {
   const result = SceneDocument.safeParse(input);
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
-    throw new Error(`Invalid SceneDocument: ${issues}`);
+    throw new SceneValidationError(result.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })));
   }
   return result.data;
 }
