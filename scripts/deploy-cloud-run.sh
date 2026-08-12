@@ -53,6 +53,14 @@ for role in roles/datastore.user roles/secretmanager.secretAccessor roles/cloudt
     --member="serviceAccount:${RUNTIME_SA_EMAIL}" --role="$role" --condition=None >/dev/null
 done
 
+# Cloud Tasks tasks carry an OIDC token minted for this same SA (so Cloud
+# Run's invoker check on /internal/render passes) — creating that task
+# requires the calling identity to be allowed to act as the SA the token
+# names, even when they're the same account.
+gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA_EMAIL" \
+  --member="serviceAccount:${RUNTIME_SA_EMAIL}" \
+  --role="roles/iam.serviceAccountUser" >/dev/null
+
 echo "== Secrets (creating new versions each run — values are read from $ENV_FILE, never printed) =="
 put_secret() {
   local name="$1" value="$2"
