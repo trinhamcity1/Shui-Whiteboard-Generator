@@ -25,6 +25,10 @@ export interface JobCost {
   ttsCostUsd: number;
   scenePlanningLLMTokens?: number;
   scenePlanningCostUsd?: number;
+  imagesGenerated?: number;
+  imageCacheHits?: number;
+  imageGenerationCostUsd?: number;
+  imageProvider?: "recraft" | "flux";
   renderWallClockSeconds: number;
   renderComputeCostUsd: number;
   totalCostUsd: number;
@@ -36,23 +40,36 @@ export function buildJobCost(args: {
   renderWallClockSeconds: number;
   scenePlanningLLMTokens?: number;
   scenePlanningCostUsd?: number;
+  imagesGenerated?: number;
+  imageCacheHits?: number;
+  imageGenerationCostUsd?: number;
+  imageProvider?: "recraft" | "flux";
 }): JobCost {
   const { renderComputeCostUsd } = estimateRenderComputeCost(args.renderWallClockSeconds);
   const scenePlanningCostUsd = args.scenePlanningCostUsd ?? 0;
+  const imageGenerationCostUsd = args.imageGenerationCostUsd ?? 0;
   return {
     ttsCharacters: args.ttsCharacters,
     ttsCostUsd: args.ttsCostUsd,
     scenePlanningLLMTokens: args.scenePlanningLLMTokens,
     scenePlanningCostUsd: args.scenePlanningCostUsd,
+    imagesGenerated: args.imagesGenerated,
+    imageCacheHits: args.imageCacheHits,
+    imageGenerationCostUsd: args.imageGenerationCostUsd,
+    imageProvider: args.imageProvider,
     renderWallClockSeconds: args.renderWallClockSeconds,
     renderComputeCostUsd,
-    totalCostUsd: args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd,
+    totalCostUsd: args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd + imageGenerationCostUsd,
   };
 }
 
 export function printJobCost(cost: JobCost, label?: string): void {
-  const perMinuteVideoTarget = { low: 0.05, high: 0.2 };
-  const withinTarget = cost.totalCostUsd >= 0 && cost.totalCostUsd <= perMinuteVideoTarget.high * 3;
+  // Non-illustrated target carries over from Phases 0-3; once a job
+  // actually generates images, the relevant ceiling is the Phase 4
+  // direction update's worst-case illustrated figure instead.
+  const usesImages = (cost.imagesGenerated ?? 0) > 0 || (cost.imageCacheHits ?? 0) > 0;
+  const target = usesImages ? { low: 0.05, high: 0.27 } : { low: 0.05, high: 0.2 };
+  const withinTarget = cost.totalCostUsd >= 0 && cost.totalCostUsd <= target.high * 1.5;
 
   console.log(`\n--- Job Cost Breakdown${label ? ` (${label})` : ""} ---`);
   console.log(`TTS:      ${cost.ttsCharacters} characters -> $${cost.ttsCostUsd.toFixed(4)}`);
@@ -61,14 +78,19 @@ export function printJobCost(cost: JobCost, label?: string): void {
       `Planning: ${cost.scenePlanningLLMTokens ?? 0} tokens -> $${cost.scenePlanningCostUsd.toFixed(4)}`,
     );
   }
+  if (usesImages) {
+    console.log(
+      `Images:   ${cost.imagesGenerated ?? 0} generated, ${cost.imageCacheHits ?? 0} cache hits (${cost.imageProvider ?? "?"}) -> $${(cost.imageGenerationCostUsd ?? 0).toFixed(4)}`,
+    );
+  }
   console.log(
     `Render:   ${cost.renderWallClockSeconds.toFixed(1)}s wall-clock -> $${cost.renderComputeCostUsd.toFixed(4)} (Cloud Run estimate)`,
   );
   console.log(`TOTAL:    $${cost.totalCostUsd.toFixed(4)}`);
-  console.log(`Target:   $${perMinuteVideoTarget.low.toFixed(2)}-$${perMinuteVideoTarget.high.toFixed(2)}/minute`);
+  console.log(`Target:   $${target.low.toFixed(2)}-$${target.high.toFixed(2)}/minute${usesImages ? " (illustrated)" : ""}`);
   if (!withinTarget) {
     console.warn(
-      "\n⚠️  WARNING: total cost is well outside the $0.05-$0.20/minute target this project is betting on. Flag this loudly.",
+      `\n⚠️  WARNING: total cost is well outside the $${target.low.toFixed(2)}-$${target.high.toFixed(2)}/minute target this project is betting on. Flag this loudly.`,
     );
   }
   console.log("---------------------------\n");

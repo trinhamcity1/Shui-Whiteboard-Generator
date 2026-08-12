@@ -34,6 +34,11 @@ export const SceneAction = z
     timelineEntries: z.array(TimelineEntry).optional(),
     comparisonCards: z.array(ComparisonCard).optional(),
     imageUrl: z.string().optional(),
+    // Short, concrete description of what should be drawn — resolved into a
+    // real imageUrl by the Phase 4 image-generation pipeline step before
+    // render. Never invented by the renderer itself; either a human author
+    // or the LLM planner sets this, never a fabricated URL.
+    imageConcept: z.string().max(300).optional(),
     attribution: z.string().optional(),
   })
   .superRefine((action, ctx) => {
@@ -64,7 +69,17 @@ export const SceneAction = z
         break;
       case "documentReveal":
       case "fullBleedGraphic":
-        requireField("imageUrl", "imageUrl");
+        // A real document scan/artifact must be supplied directly
+        // (imageUrl) — no generator should invent a fake document and pass
+        // it off as one. Illustrative art may instead describe what to
+        // draw (imageConcept), resolved to a real image before render.
+        if (action.imageUrl === undefined && action.imageConcept === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `SceneAction of type "${action.type}" requires either "imageUrl" or "imageConcept"`,
+            path: ["imageUrl"],
+          });
+        }
         break;
       case "timeline":
         requireField("timelineEntries", "timelineEntries");

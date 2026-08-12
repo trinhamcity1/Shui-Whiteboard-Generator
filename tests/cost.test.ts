@@ -29,4 +29,32 @@ describe("cost calculation", () => {
     const cost = buildJobCost({ ttsCharacters: 900, ttsCostUsd: 900 * 0.00018, renderWallClockSeconds: 45 });
     expect(cost.totalCostUsd).toBeLessThan(0.6); // 3x the $0.20 target, generous margin for a unit test
   });
+
+  it("includes image generation cost in the total when illustrations were generated", () => {
+    const cost = buildJobCost({
+      ttsCharacters: 900,
+      ttsCostUsd: 0.16,
+      renderWallClockSeconds: 30,
+      imagesGenerated: 2,
+      imageCacheHits: 1,
+      imageGenerationCostUsd: 0.16,
+      imageProvider: "recraft",
+    });
+    expect(cost.totalCostUsd).toBeCloseTo(cost.ttsCostUsd + cost.renderComputeCostUsd + 0.16, 6);
+    expect(cost.imagesGenerated).toBe(2);
+    expect(cost.imageCacheHits).toBe(1);
+  });
+
+  it("a cache hit for every image contributes zero image cost", () => {
+    const cost = buildJobCost({
+      ttsCharacters: 900,
+      ttsCostUsd: 0.16,
+      renderWallClockSeconds: 30,
+      imagesGenerated: 0,
+      imageCacheHits: 3,
+      imageGenerationCostUsd: 0,
+      imageProvider: "flux",
+    });
+    expect(cost.totalCostUsd).toBeCloseTo(cost.ttsCostUsd + cost.renderComputeCostUsd, 6);
+  });
 });

@@ -20,9 +20,9 @@ const OUTPUT_COST_PER_MTOK_USD = 4.0;
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const WORDS_PER_SECOND = 2.5; // ~150 wpm, a normal narration pace
 
-// Planner never has real images to reference, so documentReveal and
-// fullBleedGraphic are deliberately excluded from what it may choose —
-// those stay a pre-authored-only concern.
+// Phase 4: the planner may now request illustrations too — resolved to a
+// real image by the image-generation pipeline step before render, so the
+// planner never needs (or is allowed) to invent an imageUrl itself.
 const PLANNABLE_ACTION_TYPES = [
   "titleCard",
   "bulletList",
@@ -30,6 +30,8 @@ const PLANNABLE_ACTION_TYPES = [
   "timeline",
   "comparisonCards",
   "quote",
+  "documentReveal",
+  "fullBleedGraphic",
 ] as const;
 
 const PlannedActionsSchema = z.array(SceneAction).min(1);
@@ -43,7 +45,7 @@ Rules:
 - Output ONLY a JSON array of SceneAction objects. No prose, no markdown fences, no explanation.
 - Each action: {"id": string, "type": string, "atSeconds": number, "durationSeconds": number, ...type-specific fields}
 - "type" must be one of exactly: ${PLANNABLE_ACTION_TYPES.join(", ")}
-- Never invent a type outside that list, and never use "documentReveal" or "fullBleedGraphic" — no images are available.
+- Never invent a type outside that list.
 - Type-specific required fields:
   - titleCard: "text" (short string)
   - bulletList: "items" (array of short strings)
@@ -51,6 +53,16 @@ Rules:
   - timeline: "timelineEntries" (array of {"year": number, "label": string})
   - comparisonCards: "comparisonCards" (array of {"title": string, "items": string[]})
   - quote: "text" (and optionally "attribution")
+  - documentReveal / fullBleedGraphic: "imageConcept" (a short, concrete description of exactly what
+    should be drawn — specific enough that an illustrator with no other context could draw it correctly).
+    NEVER set "imageUrl" yourself — you have no real images, only descriptions.
+- Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
+  concrete and drawable — an object, a place, a process, a diagram. Use "documentReveal" when the script
+  references an actual document, artifact, or figure worth showing prominently.
+- Use illustrations SPARINGLY: 1-3 per video, not every scene. Most of the video should still carry its
+  point through bulletList/iconCallout/timeline — reserve illustration for the moments that most benefit
+  from a real picture. If nothing in the script is concretely drawable (e.g. an abstract argument), it is
+  correct to use zero illustrations and rely on the typographic components alone.
 - Actions should cover roughly 0 to ${estimatedDurationSeconds.toFixed(1)} seconds (the estimated
   narration length), with each action's atSeconds + durationSeconds not exceeding that total by much.
 - Start with a titleCard summarizing the topic.

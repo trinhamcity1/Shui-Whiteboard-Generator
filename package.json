@@ -12,6 +12,7 @@
     "render-batch": "tsx scripts/render-batch.ts",
     "render-style-comparison": "tsx scripts/render-style-comparison.ts",
     "render-script-only-batch": "tsx scripts/render-script-only-batch.ts",
+    "render-illustration-comparison": "tsx scripts/render-illustration-comparison.ts",
     "serve": "tsx src/api/server.ts",
     "create-api-key": "tsx scripts/create-api-key.ts",
     "deploy": "bash scripts/deploy-cloud-run.sh",

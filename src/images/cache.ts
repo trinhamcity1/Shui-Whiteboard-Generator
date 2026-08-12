@@ -1,0 +1,65 @@
+import crypto from "node:crypto";
+import type { GeneratedImage, ImageProvider } from "./types";
+import { uploadBufferToR2, getPresignedUrlForKey } from "../storage/r2";
+import { getImageCacheEntry, createImageCacheEntry, incrementImageCacheHit } from "../storage/firestore";
+
+export function cacheKeyFor(provider: string, styleVariant: string, concept: string): string {
+  const normalized = concept.trim().toLowerCase();
+  return crypto.createHash("sha256").update(`${provider}:${styleVariant}:${normalized}`).digest("hex");
+}
+
+function extensionFor(contentType: string): string {
+  return contentType.includes("svg") ? "svg" : "png";
+}
+
+/**
+ * Resolves one imageConcept to a real image, cache-first. Image generation
+ * is the expensive, slow step in this pipeline — most whiteboard videos on
+ * related topics reuse similar concepts, so this cache is what keeps the
+ * pipeline anywhere near its target cost, not an optional optimization.
+ */
+export async function resolveImage(
+  concept: string,
+  opts: { provider: ImageProvider; styleVariant: string; orientation: "vertical" | "horizontal" },
+): Promise<GeneratedImage> {
+  const cacheKey = cacheKeyFor(opts.provider.name, opts.styleVariant, concept);
+
+  const cached = await getImageCacheEntry(cacheKey);
+  if (cached) {
+    await incrementImageCacheHit(cacheKey);
+    const imageUrl = await getPresignedUrlForKey({ key: cached.r2Key });
+    return {
+      imageUrl,
+      provider: opts.provider.name,
+      costUsd: 0,
+      cacheHit: true,
+      widthPx: cached.widthPx,
+      heightPx: cached.heightPx,
+    };
+  }
+
+  const raw = await opts.provider.generate(concept, { styleVariant: opts.styleVariant, orientation: opts.orientation });
+  const r2Key = `images/${cacheKey}.${extensionFor(raw.contentType)}`;
+  const { url } = await uploadBufferToR2({ buffer: raw.imageBuffer, key: r2Key, contentType: raw.contentType });
+
+  await createImageCacheEntry(cacheKey, {
+    provider: opts.provider.name,
+    styleVariant: opts.styleVariant,
+    concept,
+    r2Key,
+    widthPx: raw.widthPx,
+    heightPx: raw.heightPx,
+    costUsd: raw.costUsd,
+    createdAt: Date.now(),
+    hitCount: 0,
+  });
+
+  return {
+    imageUrl: url,
+    provider: opts.provider.name,
+    costUsd: raw.costUsd,
+    cacheHit: false,
+    widthPx: raw.widthPx,
+    heightPx: raw.heightPx,
+  };
+}

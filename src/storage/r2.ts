@@ -26,8 +26,11 @@ export function loadR2ConfigFromEnv(): R2Config {
   return { accountId, accessKeyId, secretAccessKey, bucketName, endpoint };
 }
 
+let cachedClient: { client: S3Client; config: R2Config } | undefined;
+
 function buildClient(config: R2Config): S3Client {
-  return new S3Client({
+  if (cachedClient && cachedClient.config === config) return cachedClient.client;
+  const client = new S3Client({
     region: "auto",
     endpoint: config.endpoint,
     credentials: {
@@ -35,7 +38,11 @@ function buildClient(config: R2Config): S3Client {
       secretAccessKey: config.secretAccessKey,
     },
   });
+  cachedClient = { client, config };
+  return client;
 }
+
+const DEFAULT_EXPIRY_SECONDS = 60 * 60 * 24 * 7;
 
 /**
  * Uploads a local file to shui-wg's R2 bucket and returns a presigned GET
@@ -49,24 +56,47 @@ export async function uploadRenderToR2(args: {
   config?: R2Config;
   expiresInSeconds?: number;
 }): Promise<{ url: string; key: string }> {
+  const body = fs.readFileSync(args.localFilePath);
+  return uploadBufferToR2({ ...args, buffer: body, contentType: "video/mp4" });
+}
+
+/** Same as uploadRenderToR2, but for in-memory bytes (e.g. a generated image). */
+export async function uploadBufferToR2(args: {
+  buffer: Buffer;
+  key: string;
+  contentType: string;
+  config?: R2Config;
+  expiresInSeconds?: number;
+}): Promise<{ url: string; key: string }> {
   const config = args.config ?? loadR2ConfigFromEnv();
   const client = buildClient(config);
-  const body = fs.readFileSync(args.localFilePath);
 
   await client.send(
     new PutObjectCommand({
       Bucket: config.bucketName,
       Key: args.key,
-      Body: body,
-      ContentType: "video/mp4",
+      Body: args.buffer,
+      ContentType: args.contentType,
     }),
   );
 
-  const url = await getSignedUrl(
-    client,
-    new GetObjectCommand({ Bucket: config.bucketName, Key: args.key }),
-    { expiresIn: args.expiresInSeconds ?? 60 * 60 * 24 * 7 },
-  );
-
+  const url = await getPresignedUrlForKey({ key: args.key, config, expiresInSeconds: args.expiresInSeconds });
   return { url, key: args.key };
+}
+
+/**
+ * Regenerates a fresh presigned GET URL for an object that's already in
+ * the bucket — used on a cache hit, since a URL presigned at upload time
+ * may have long since expired by the time the same image is reused.
+ */
+export async function getPresignedUrlForKey(args: {
+  key: string;
+  config?: R2Config;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const config = args.config ?? loadR2ConfigFromEnv();
+  const client = buildClient(config);
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: config.bucketName, Key: args.key }), {
+    expiresIn: args.expiresInSeconds ?? DEFAULT_EXPIRY_SECONDS,
+  });
 }

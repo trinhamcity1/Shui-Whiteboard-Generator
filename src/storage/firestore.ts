@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { initializeApp, getApps, cert, applicationDefault } from "firebase-admin/app";
-import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestore";
+import { getFirestore, Timestamp, FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { JobCost } from "../cost/index";
 import type { SceneDocumentRequest } from "../pipeline/resolveSceneDocument";
 
@@ -120,6 +120,35 @@ export async function listJobsForKey(apiKeyId: string, limit: number, offset: nu
     .limit(limit)
     .get();
   return snapshot.docs.map((d) => d.data() as JobRecord);
+}
+
+export interface ImageCacheRecord {
+  provider: string;
+  styleVariant: string;
+  concept: string;
+  r2Key: string;
+  widthPx: number;
+  heightPx: number;
+  costUsd: number; // cost of the original generation, not the cache hit
+  createdAt: number;
+  hitCount: number;
+}
+
+export async function getImageCacheEntry(cacheKey: string): Promise<ImageCacheRecord | null> {
+  const db = getDb();
+  const doc = await db.collection("imageCache").doc(cacheKey).get();
+  if (!doc.exists) return null;
+  return doc.data() as ImageCacheRecord;
+}
+
+export async function createImageCacheEntry(cacheKey: string, record: ImageCacheRecord): Promise<void> {
+  const db = getDb();
+  await db.collection("imageCache").doc(cacheKey).set(record);
+}
+
+export async function incrementImageCacheHit(cacheKey: string): Promise<void> {
+  const db = getDb();
+  await db.collection("imageCache").doc(cacheKey).update({ hitCount: FieldValue.increment(1) });
 }
 
 export { Timestamp };
