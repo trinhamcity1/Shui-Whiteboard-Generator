@@ -19,9 +19,12 @@ export class RecraftImageProvider implements ImageProvider {
     opts: { styleVariant: string; orientation: "vertical" | "horizontal" },
   ): Promise<RawGeneratedImage> {
     const prompt = buildImagePrompt(concept, opts.styleVariant);
-    // Recraft's fixed size enum — adjust if their API rejects this exact
-    // value; the whiteboard aesthetic wants line-art (vector) output.
-    const size = opts.orientation === "vertical" ? "1024x1820" : "1820x1024";
+    // The vector_illustration model rejects several sizes the general
+    // raster endpoint accepts (confirmed against the live API — it 400s on
+    // 1024x1820). Square is supported everywhere; FullBleedGraphic already
+    // renders with objectFit: cover, so a square source crops cleanly into
+    // the vertical/horizontal frame rather than distorting.
+    const size = "1024x1024";
 
     const response = await fetch("https://external.api.recraft.ai/v1/images/generations", {
       method: "POST",
