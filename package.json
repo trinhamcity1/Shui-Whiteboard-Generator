@@ -14,6 +14,7 @@
     "render-script-only-batch": "tsx scripts/render-script-only-batch.ts",
     "render-illustration-comparison": "tsx scripts/render-illustration-comparison.ts",
     "render-illustration-quality-test": "tsx scripts/render-illustration-quality-test.ts",
+    "generate-asset-library": "tsx scripts/generate-asset-library.ts",
     "serve": "tsx src/api/server.ts",
     "create-api-key": "tsx scripts/create-api-key.ts",
     "deploy": "bash scripts/deploy-cloud-run.sh",

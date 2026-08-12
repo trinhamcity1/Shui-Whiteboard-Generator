@@ -151,4 +151,50 @@ export async function incrementImageCacheHit(cacheKey: string): Promise<void> {
   await db.collection("imageCache").doc(cacheKey).update({ hitCount: FieldValue.increment(1) });
 }
 
+export interface LibraryAssetRecord {
+  id: string;
+  tier: string;
+  role: string;
+  provider: string;
+  r2Key: string;
+  imageUrl: string;
+  widthPx: number;
+  heightPx: number;
+  costUsd: number;
+  generatedAt: string;
+}
+
+export async function getLibraryAsset(id: string): Promise<LibraryAssetRecord | null> {
+  const db = getDb();
+  const doc = await db.collection("assetLibrary").doc(id).get();
+  if (!doc.exists) return null;
+  return doc.data() as LibraryAssetRecord;
+}
+
+export async function createLibraryAsset(record: LibraryAssetRecord): Promise<void> {
+  const db = getDb();
+  await db.collection("assetLibrary").doc(record.id).set(record);
+}
+
+export async function listLibraryAssets(tier?: string): Promise<LibraryAssetRecord[]> {
+  const db = getDb();
+  let query: FirebaseFirestore.Query = db.collection("assetLibrary");
+  if (tier) query = query.where("tier", "==", tier);
+  const snapshot = await query.get();
+  return snapshot.docs.map((d) => d.data() as LibraryAssetRecord);
+}
+
+/** One reusable Recraft style_id per named character, so every pose of that character shares a consistent look. */
+export async function getRecraftStyleId(characterKey: string): Promise<string | null> {
+  const db = getDb();
+  const doc = await db.collection("recraftStyles").doc(characterKey).get();
+  if (!doc.exists) return null;
+  return (doc.data() as { styleId: string }).styleId;
+}
+
+export async function saveRecraftStyleId(characterKey: string, styleId: string): Promise<void> {
+  const db = getDb();
+  await db.collection("recraftStyles").doc(characterKey).set({ styleId, createdAt: Date.now() });
+}
+
 export { Timestamp };
