@@ -78,6 +78,7 @@ put_secret() {
 put_secret "ELEVENLABS_API_KEY" "$(read_env ELEVENLABS_API_KEY)"
 put_secret "R2_ACCESS_KEY_ID" "$(read_env R2_ACCESS_KEY_ID)"
 put_secret "R2_SECRET_ACCESS_KEY" "$(read_env R2_SECRET_ACCESS_KEY)"
+put_secret "ANTHROPIC_API_KEY" "$(read_env ANTHROPIC_API_KEY)"
 
 # Non-secret config, passed as plain env vars.
 R2_ACCOUNT_ID="$(read_env R2_ACCOUNT_ID)"
@@ -93,7 +94,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --allow-unauthenticated \
   --memory=4Gi --cpu=2 --timeout=900 --port=8080 \
   --set-env-vars="FIRESTORE_PROJECT_ID=${PROJECT_ID},R2_ACCOUNT_ID=${R2_ACCOUNT_ID},R2_BUCKET_NAME=${R2_BUCKET_NAME},R2_ENDPOINT=${R2_ENDPOINT},TTS_VOICE_ID=${TTS_VOICE_ID}" \
-  --set-secrets="ELEVENLABS_API_KEY=ELEVENLABS_API_KEY:latest,R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID:latest,R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY:latest"
+  --set-secrets="ELEVENLABS_API_KEY=ELEVENLABS_API_KEY:latest,R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID:latest,R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest"
 
 SERVICE_URL="$(gcloud run services describe "$SERVICE_NAME" --region="$REGION" --format='value(status.url)')"
 echo "  Service URL: $SERVICE_URL"

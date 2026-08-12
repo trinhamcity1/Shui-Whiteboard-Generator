@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
+import { useTheme } from "../theme/ThemeContext";
 
 export function Timeline({
   entries,
@@ -10,6 +11,7 @@ export function Timeline({
   startFrame: number;
 }) {
   const { fps } = useVideoConfig();
+  const theme = useTheme();
   const staggerFrames = Math.round(fps * 0.4);
 
   return (
@@ -17,7 +19,7 @@ export function Timeline({
       style={{
         justifyContent: "center",
         padding: "0 90px",
-        background: "#f7f6f2",
+        background: theme.background,
       }}
     >
       <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 44 }}>
@@ -28,7 +30,8 @@ export function Timeline({
             top: 12,
             bottom: 12,
             width: 3,
-            background: "#cdd5d3",
+            background: theme.border,
+            opacity: 0.4,
           }}
         />
         {entries.map((entry, i) => (
@@ -39,9 +42,9 @@ export function Timeline({
                   width: 24,
                   height: 24,
                   borderRadius: 999,
-                  background: "#1c5fd1",
-                  border: "4px solid #f7f6f2",
-                  boxShadow: "0 0 0 3px #1c5fd1",
+                  background: theme.accent,
+                  border: `4px solid ${theme.background}`,
+                  boxShadow: `0 0 0 3px ${theme.accent}`,
                   flexShrink: 0,
                   marginTop: 4,
                   zIndex: 1,
@@ -50,20 +53,20 @@ export function Timeline({
               <div>
                 <div
                   style={{
-                    fontFamily: "ui-monospace, monospace",
+                    fontFamily: theme.fontMono,
                     fontSize: 28,
                     fontWeight: 700,
-                    color: "#1c5fd1",
+                    color: theme.accent,
                   }}
                 >
                   {entry.year}
                 </div>
                 <div
                   style={{
-                    fontFamily: "Helvetica, Arial, sans-serif",
+                    fontFamily: theme.fontBody,
                     fontSize: 36,
                     fontWeight: 600,
-                    color: "#1d2624",
+                    color: theme.ink,
                   }}
                 >
                   {entry.label}

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { resolveSceneDocument } from "../src/pipeline/resolveSceneDocument";
 
 const scenes = {
@@ -11,29 +11,38 @@ const scenes = {
 };
 
 describe("resolveSceneDocument", () => {
-  it("accepts a pre-authored scenes payload as-is", () => {
-    const doc = resolveSceneDocument({ scenes });
-    expect(doc.actions).toHaveLength(1);
+  beforeEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
   });
 
-  it("rejects a request with neither scenes nor narrationScript", () => {
-    expect(() => resolveSceneDocument({} as never)).toThrow(/either/i);
+  it("accepts a pre-authored scenes payload as-is, with no scenePlanning cost", async () => {
+    const { sceneDocument, scenePlanning } = await resolveSceneDocument({ scenes });
+    expect(sceneDocument.actions).toHaveLength(1);
+    expect(scenePlanning).toBeUndefined();
   });
 
-  it("rejects a request with both scenes and narrationScript", () => {
-    expect(() =>
+  it("rejects a request with neither scenes nor narrationScript", async () => {
+    await expect(resolveSceneDocument({} as never)).rejects.toThrow(/either/i);
+  });
+
+  it("rejects a request with both scenes and narrationScript", async () => {
+    await expect(
       resolveSceneDocument({
         scenes,
         narrationScript: "x",
         voice: "v",
         styleVariant: "classic-whiteboard",
       } as never),
-    ).toThrow(/not both/i);
+    ).rejects.toThrow(/not both/i);
   });
 
-  it("script-only path calls the not-yet-implemented planner and fails clearly", () => {
-    expect(() =>
+  it("script-only path fails clearly without an ANTHROPIC_API_KEY configured", async () => {
+    await expect(
       resolveSceneDocument({ narrationScript: "x", voice: "v", styleVariant: "classic-whiteboard" }),
-    ).toThrow(/not implemented/i);
+    ).rejects.toThrow(/ANTHROPIC_API_KEY/i);
+  });
+
+  it("script-only path rejects a malformed request shape before ever calling the planner", async () => {
+    await expect(resolveSceneDocument({ narrationScript: "x" } as never)).rejects.toThrow();
   });
 });

@@ -34,7 +34,7 @@ export async function renderSceneDocumentJob(args: {
   uploadKey: string;
   audioFileName?: string;
 }): Promise<RenderJobResult> {
-  const sceneDocument = resolveSceneDocument(args.request);
+  const { sceneDocument, scenePlanning } = await resolveSceneDocument(args.request);
 
   const tts = new ElevenLabsTTSProvider(args.apiKey);
   const ttsResult = await tts.synthesize(sceneDocument.narrationScript, { voice: sceneDocument.voice });
@@ -82,6 +82,8 @@ export async function renderSceneDocumentJob(args: {
     ttsCharacters: ttsResult.characters,
     ttsCostUsd: ttsResult.costUsd,
     renderWallClockSeconds,
+    scenePlanningLLMTokens: scenePlanning?.tokensUsed,
+    scenePlanningCostUsd: scenePlanning?.costUsd,
   });
 
   return {

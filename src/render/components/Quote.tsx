@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { DrawOn } from "./DrawOn";
+import { useTheme } from "../theme/ThemeContext";
 
 export function Quote({
   text,
@@ -11,13 +12,14 @@ export function Quote({
   attribution?: string;
   startFrame: number;
 }) {
+  const theme = useTheme();
   return (
     <AbsoluteFill
       style={{
         justifyContent: "center",
         alignItems: "center",
         padding: "0 130px",
-        background: "#f7f6f2",
+        background: theme.background,
       }}
     >
       <DrawOn startFrame={startFrame}>
@@ -27,7 +29,7 @@ export function Quote({
               fontFamily: "Georgia, serif",
               fontSize: 96,
               lineHeight: 0.4,
-              color: "#1c5fd1",
+              color: theme.accent,
               marginBottom: 12,
             }}
           >
@@ -35,11 +37,11 @@ export function Quote({
           </div>
           <p
             style={{
-              fontFamily: "Georgia, serif",
+              fontFamily: theme.fontDisplay,
               fontStyle: "italic",
               fontSize: 52,
               fontWeight: 500,
-              color: "#1d2624",
+              color: theme.ink,
               lineHeight: 1.3,
               margin: 0,
             }}
@@ -50,9 +52,9 @@ export function Quote({
             <p
               style={{
                 marginTop: 26,
-                fontFamily: "ui-monospace, monospace",
+                fontFamily: theme.fontMono,
                 fontSize: 22,
-                color: "#59665f",
+                color: theme.inkSoft,
               }}
             >
               — {attribution}

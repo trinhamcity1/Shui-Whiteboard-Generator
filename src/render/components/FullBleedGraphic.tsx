@@ -1,15 +1,20 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { useTheme } from "../theme/ThemeContext";
 
 export function FullBleedGraphic({ imageUrl, startFrame }: { imageUrl: string; startFrame: number }) {
   const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [startFrame, startFrame + 15], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const theme = useTheme();
+  const instant = theme.drawOnMode === "instant";
+  const opacity = instant
+    ? 1
+    : interpolate(frame, [startFrame, startFrame + 15], [0, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
 
   return (
-    <AbsoluteFill style={{ background: "#1d2624" }}>
+    <AbsoluteFill style={{ background: theme.ink }}>
       <Img
         src={imageUrl}
         style={{

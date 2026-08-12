@@ -10,6 +10,8 @@
   "scripts": {
     "render-local": "tsx scripts/render-local.ts",
     "render-batch": "tsx scripts/render-batch.ts",
+    "render-style-comparison": "tsx scripts/render-style-comparison.ts",
+    "render-script-only-batch": "tsx scripts/render-script-only-batch.ts",
     "serve": "tsx src/api/server.ts",
     "create-api-key": "tsx scripts/create-api-key.ts",
     "deploy": "bash scripts/deploy-cloud-run.sh",
@@ -17,6 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.3",
+    "@heroicons/react": "^2.1.5",
     "@remotion/bundler": "^4.0.190",
     "@remotion/renderer": "^4.0.190",
     "@aws-sdk/client-s3": "^3.665.0",

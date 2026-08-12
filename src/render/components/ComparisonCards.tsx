@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
+import { useTheme } from "../theme/ThemeContext";
 
 export function ComparisonCards({
   cards,
@@ -10,6 +11,7 @@ export function ComparisonCards({
   startFrame: number;
 }) {
   const { fps } = useVideoConfig();
+  const theme = useTheme();
   const staggerFrames = Math.round(fps * 0.3);
 
   return (
@@ -17,7 +19,7 @@ export function ComparisonCards({
       style={{
         justifyContent: "center",
         padding: "0 60px",
-        background: "#f7f6f2",
+        background: theme.background,
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -25,18 +27,18 @@ export function ComparisonCards({
           <DrawOn key={card.title} startFrame={startFrame + i * staggerFrames}>
             <div
               style={{
-                background: "#ffffff",
-                border: "2px solid #1d2624",
+                background: theme.surface,
+                border: theme.strokeWidth > 0 ? `${theme.strokeWidth}px solid ${theme.border}` : `1px solid ${theme.border}`,
                 borderRadius: 12,
                 padding: 28,
               }}
             >
               <h3
                 style={{
-                  fontFamily: "Helvetica, Arial, sans-serif",
+                  fontFamily: theme.fontDisplay,
                   fontSize: 34,
                   fontWeight: 800,
-                  color: "#1c5fd1",
+                  color: theme.accent,
                   margin: "0 0 14px",
                 }}
               >
@@ -47,10 +49,10 @@ export function ComparisonCards({
                   <li
                     key={item}
                     style={{
-                      fontFamily: "Helvetica, Arial, sans-serif",
+                      fontFamily: theme.fontBody,
                       fontSize: 26,
                       fontWeight: 500,
-                      color: "#1d2624",
+                      color: theme.ink,
                     }}
                   >
                     {item}

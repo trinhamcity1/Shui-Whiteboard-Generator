@@ -1,4 +1,5 @@
-import { SceneDocument, parseSceneDocument, type SceneAction } from "../schema/scene";
+import { z } from "zod";
+import { SceneDocument, parseSceneDocument, SceneValidationError } from "../schema/scene";
 import { planScenesFromScript } from "../schema/planning";
 
 export interface PreAuthoredRequest {
@@ -15,6 +16,21 @@ export interface ScriptOnlyRequest {
 
 export type SceneDocumentRequest = PreAuthoredRequest | ScriptOnlyRequest;
 
+export const ScriptOnlyRequestSchema = z
+  .object({
+    narrationScript: z.string().min(1),
+    voice: z.string().min(1),
+    styleVariant: z.string().min(1),
+    orientation: z.enum(["vertical", "horizontal"]).optional(),
+    backgroundTrack: z.string().optional(),
+  })
+  .strict();
+
+export interface ResolvedSceneDocument {
+  sceneDocument: SceneDocument;
+  scenePlanning?: { tokensUsed: number; costUsd: number };
+}
+
 function isPreAuthored(request: SceneDocumentRequest): request is PreAuthoredRequest {
   return "scenes" in request;
 }
@@ -22,10 +38,16 @@ function isPreAuthored(request: SceneDocumentRequest): request is PreAuthoredReq
 /**
  * Mirrors Golpo's `prompt` vs `custom_script` split: a caller supplies
  * either a full pre-authored SceneDocument, or just a narration script
- * that gets planned into one. Rejects a request that is neither or both —
- * ambiguous input should fail loudly, not guess.
+ * that gets planned into one via Phase 3's LLM call. Rejects a request
+ * that is neither or both — ambiguous input should fail loudly, not
+ * guess.
+ *
+ * Async because the script-only path makes a real LLM call — callers on
+ * a request/response path that must return immediately (the API's
+ * `generate` route) should validate shape with ScriptOnlyRequestSchema
+ * instead and defer calling this until the async render worker.
  */
-export function resolveSceneDocument(request: SceneDocumentRequest): SceneDocument {
+export async function resolveSceneDocument(request: SceneDocumentRequest): Promise<ResolvedSceneDocument> {
   const hasScenes = "scenes" in request && request.scenes !== undefined;
   const hasScript = "narrationScript" in request && request.narrationScript !== undefined;
 
@@ -37,19 +59,31 @@ export function resolveSceneDocument(request: SceneDocumentRequest): SceneDocume
   }
 
   if (isPreAuthored(request)) {
-    return parseSceneDocument(request.scenes);
+    return { sceneDocument: parseSceneDocument(request.scenes) };
   }
 
-  const scriptRequest = request as ScriptOnlyRequest;
-  const actions: SceneAction[] = planScenesFromScript(scriptRequest.narrationScript);
+  const scriptResult = ScriptOnlyRequestSchema.safeParse(request);
+  if (!scriptResult.success) {
+    throw new SceneValidationError(
+      scriptResult.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })),
+    );
+  }
+  const scriptRequest = scriptResult.data;
 
-  return parseSceneDocument({
+  const planResult = await planScenesFromScript(scriptRequest.narrationScript);
+
+  const sceneDocument = parseSceneDocument({
     schemaVersion: 1,
     narrationScript: scriptRequest.narrationScript,
     voice: scriptRequest.voice,
     styleVariant: scriptRequest.styleVariant,
     orientation: scriptRequest.orientation ?? "vertical",
     backgroundTrack: scriptRequest.backgroundTrack,
-    actions,
+    actions: planResult.actions,
   });
+
+  return {
+    sceneDocument,
+    scenePlanning: { tokensUsed: planResult.tokensUsed, costUsd: planResult.costUsd },
+  };
 }

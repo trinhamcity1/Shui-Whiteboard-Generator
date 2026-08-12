@@ -3,7 +3,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { ApiError } from "../errors";
 import { serializeJob } from "../serializers";
-import { resolveSceneDocument, type SceneDocumentRequest } from "../../pipeline/resolveSceneDocument";
+import { ScriptOnlyRequestSchema, type SceneDocumentRequest } from "../../pipeline/resolveSceneDocument";
+import { parseSceneDocument } from "../../schema/scene";
 import { createJob, getJob, listJobsForKey, updateJob, type JobRecord } from "../../storage/firestore";
 import type { JobQueue } from "../../queue/types";
 
@@ -23,15 +24,22 @@ export function videosRouter(queue: JobQueue): Router {
         throw new ApiError(400, "Request must supply either `scenes` (pre-authored) or `narrationScript` (script-only).");
       }
 
-      let sceneDocument;
-      try {
-        sceneDocument = resolveSceneDocument(body as unknown as SceneDocumentRequest);
-      } catch (err) {
-        const message = (err as Error).message;
-        if (message.includes("not implemented")) {
-          throw new ApiError(400, "The `narrationScript`-only path is not available until Phase 3 — supply `scenes` instead.");
+      // Only the pre-authored path is validated synchronously here — it's
+      // cheap and deterministic, so an immediate 422 is the right feedback.
+      // The narrationScript-only path gets a light shape check (real
+      // validation happens after the LLM call, in the async render
+      // worker) so `generate` never blocks on — or double-pays for — a
+      // network call to the scene planner.
+      if (hasScenes) {
+        parseSceneDocument(body.scenes); // throws SceneValidationError -> 422 via errorHandler
+      } else {
+        const result = ScriptOnlyRequestSchema.safeParse(body);
+        if (!result.success) {
+          throw new ApiError(
+            422,
+            result.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })),
+          );
         }
-        throw err;
       }
 
       const jobId = crypto.randomUUID();

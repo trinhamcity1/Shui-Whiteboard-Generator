@@ -9,6 +9,8 @@ import { Timeline } from "../components/Timeline";
 import { ComparisonCards } from "../components/ComparisonCards";
 import { Quote } from "../components/Quote";
 import { FullBleedGraphic } from "../components/FullBleedGraphic";
+import { ThemeProvider } from "../theme/ThemeContext";
+import { getTheme } from "../theme/themes";
 
 function ActionRenderer({ action }: { action: SceneAction }) {
   switch (action.type) {
@@ -38,23 +40,26 @@ export type SceneRendererProps = {
 
 export function SceneRenderer({ sceneDocument, audioFileName }: SceneRendererProps) {
   const { fps } = useVideoConfig();
+  const theme = getTheme(sceneDocument.styleVariant);
 
   return (
-    <AbsoluteFill style={{ background: "#f7f6f2" }}>
-      <Audio src={staticFile(audioFileName)} />
-      {sceneDocument.backgroundTrack ? (
-        <Audio src={staticFile(sceneDocument.backgroundTrack)} volume={0.12} />
-      ) : null}
+    <ThemeProvider styleVariant={sceneDocument.styleVariant}>
+      <AbsoluteFill style={{ background: theme.background }}>
+        <Audio src={staticFile(audioFileName)} />
+        {sceneDocument.backgroundTrack ? (
+          <Audio src={staticFile(sceneDocument.backgroundTrack)} volume={0.12} />
+        ) : null}
 
-      {sceneDocument.actions.map((action) => (
-        <Sequence
-          key={action.id}
-          from={Math.round(action.atSeconds * fps)}
-          durationInFrames={Math.max(1, Math.round(action.durationSeconds * fps))}
-        >
-          <ActionRenderer action={action} />
-        </Sequence>
-      ))}
-    </AbsoluteFill>
+        {sceneDocument.actions.map((action) => (
+          <Sequence
+            key={action.id}
+            from={Math.round(action.atSeconds * fps)}
+            durationInFrames={Math.max(1, Math.round(action.durationSeconds * fps))}
+          >
+            <ActionRenderer action={action} />
+          </Sequence>
+        ))}
+      </AbsoluteFill>
+    </ThemeProvider>
   );
 }

@@ -1,18 +1,20 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { DrawOn } from "./DrawOn";
+import { useTheme } from "../theme/ThemeContext";
+import { getIconComponent } from "../icons/registry";
 
-// Phase 1 ships a generic placeholder badge instead of a real icon set —
-// Phase 3 swaps this for a real icon vocabulary (Heroicons/Phosphor) keyed
-// by the same `icon` name string, so callers don't need to change anything.
 export function IconCallout({ icon, text, startFrame }: { icon: string; text: string; startFrame: number }) {
+  const theme = useTheme();
+  const IconComponent = getIconComponent(icon);
+
   return (
     <AbsoluteFill
       style={{
         justifyContent: "center",
         alignItems: "center",
         padding: "0 100px",
-        background: "#f7f6f2",
+        background: theme.background,
       }}
     >
       <DrawOn startFrame={startFrame}>
@@ -22,28 +24,21 @@ export function IconCallout({ icon, text, startFrame }: { icon: string; text: st
               width: 120,
               height: 120,
               borderRadius: 999,
-              background: "#1c5fd1",
+              background: theme.accent,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontFamily: "ui-monospace, monospace",
-              fontSize: 20,
-              fontWeight: 700,
-              color: "#f7f6f2",
-              textTransform: "uppercase",
-              letterSpacing: "0.02em",
-              textAlign: "center",
-              padding: 12,
+              padding: 28,
             }}
           >
-            {icon.slice(0, 2)}
+            <IconComponent style={{ width: "100%", height: "100%", color: theme.background }} />
           </div>
           <p
             style={{
-              fontFamily: "Helvetica, Arial, sans-serif",
+              fontFamily: theme.fontDisplay,
               fontSize: 48,
               fontWeight: 700,
-              color: "#1d2624",
+              color: theme.ink,
               textAlign: "center",
               lineHeight: 1.3,
               margin: 0,
