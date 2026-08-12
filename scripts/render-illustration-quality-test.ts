@@ -30,11 +30,12 @@ const ACTIONS = [
     type: "fullBleedGraphic" as const,
     atSeconds: 3,
     durationSeconds: 6,
+    // The "vivid-lesson" prompt style already supplies the color/mood/quality
+    // language (see promptStyle.ts) — this stays scene-specific and under
+    // the schema's 300-char imageConcept limit.
     imageConcept:
-      "a bright sunny ocean scene where warm golden sunlight beams down onto sparkling blue water, with " +
-      "soft wispy white vapor visibly rising off the ocean surface into a gradient sky of warm orange near " +
-      "the horizon fading into cool blue above, a few fluffy white clouds beginning to form, cheerful and " +
-      "inviting, like a page from a children's science book",
+      "a bright sunny ocean, golden sunlight on sparkling blue water, soft wispy vapor rising off the " +
+      "surface into a gradient sky fading from warm orange to cool blue, a few fluffy white clouds forming",
   },
   {
     id: "facts",
@@ -49,10 +50,9 @@ const ACTIONS = [
     atSeconds: 15,
     durationSeconds: 6,
     imageConcept:
-      "a lush green valley with rolling hills under a large fluffy grey-white rain cloud, gentle blue rain " +
-      "falling in soft diagonal streaks onto the hills and into a winding river below, a faint rainbow " +
-      "arching across the sky in the background, warm and cool colors balanced, peaceful and vivid, like a " +
-      "page from a children's science book",
+      "a lush green valley with rolling hills under a fluffy grey-white rain cloud, gentle blue rain " +
+      "falling in soft diagonal streaks onto the hills and a winding river below, a faint rainbow arching " +
+      "across the sky",
   },
 ];
 
