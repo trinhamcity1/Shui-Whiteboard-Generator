@@ -9,13 +9,15 @@ export interface ScenePlanningResult {
   costUsd: number;
 }
 
-// Published Claude Haiku rates, per million tokens — a planning-stage
+// Approximate Claude Haiku rates, per million tokens — a planning-stage
 // estimate for the cost printout, same discipline as the TTS/render cost
-// constants elsewhere in this project, not a number pulled from a real bill.
+// constants elsewhere in this project, not a number pulled from a real
+// bill. Check anthropic.com/pricing for Haiku 4.5's exact current rate
+// and update these two constants if they've drifted.
 const INPUT_COST_PER_MTOK_USD = 0.8;
 const OUTPUT_COST_PER_MTOK_USD = 4.0;
 
-const DEFAULT_MODEL = "claude-3-5-haiku-latest";
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const WORDS_PER_SECOND = 2.5; // ~150 wpm, a normal narration pace
 
 // Planner never has real images to reference, so documentReveal and
