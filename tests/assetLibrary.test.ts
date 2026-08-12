@@ -14,8 +14,8 @@ describe("buildAssetPrompt", () => {
       attire: "wearing a robe",
     });
     expect(prompt).toContain("wearing a robe");
-    expect(prompt).toContain("Facing forward");
-    expect(prompt).toContain("in a explaining pose");
+    expect(prompt).toContain("Orientation: forward");
+    expect(prompt).toContain("Pose: explaining");
     expect(prompt).toContain("transparent background");
     expect(prompt).not.toContain("[");
   });

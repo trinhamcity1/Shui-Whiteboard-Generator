@@ -15,10 +15,16 @@ const SHARED_STYLE_CLAUSE =
  * different job.
  */
 function buildCharacterPrompt(entry: Required<Pick<AssetManifestEntry, "attire" | "direction" | "pose">>): string {
+  // Manifest direction/pose are already full descriptive phrases (e.g.
+  // "forward, facing the viewer" / "explaining, one hand raised, palm
+  // open"), not single words — wrapping them in "Facing X" / "in a Y
+  // pose" produced doubled-up, ungrammatical text. State them as their
+  // own clauses instead; image-generation prompts don't need to be a
+  // single grammatical sentence to work.
   return (
     `${SHARED_STYLE_CLAUSE} Simple, friendly character design with minimal facial features ` +
     `(dot eyes, simple mouth line, little to no nose), rounded proportions, ${entry.attire}. ` +
-    `Facing ${entry.direction}, in a ${entry.pose} pose.`
+    `Orientation: ${entry.direction}. Pose: ${entry.pose}.`
   );
 }
 
