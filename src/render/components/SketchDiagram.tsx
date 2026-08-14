@@ -33,6 +33,19 @@ const TIER_HEIGHT = 100;
 const TOP_WIDTH = 260;
 const BOTTOM_WIDTH = 620;
 
+/** A tapered ribbon-banner hexagon (pointed left/right ends), not a plain rectangle. */
+function ribbonPoints(x0: number, y0: number, x1: number, y1: number, notch: number): [number, number][] {
+  const yc = (y0 + y1) / 2;
+  return [
+    [x0 + notch, y0],
+    [x1 - notch, y0],
+    [x1, yc],
+    [x1 - notch, y1],
+    [x0 + notch, y1],
+    [x0, yc],
+  ];
+}
+
 function tierPolygon(index: number, total: number) {
   const wTop = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * index) / total;
   const wBottom = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * (index + 1)) / total;
@@ -86,13 +99,15 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
 
     if (topLabel) {
       const cx = CANVAS_WIDTH / 2;
+      const points = ribbonPoints(cx - 150, PYRAMID_TOP_Y - 150, cx + 150, PYRAMID_TOP_Y - 50, 24);
       svg.appendChild(
-        rc.rectangle(cx - 110, PYRAMID_TOP_Y - 150, 220, 100, {
+        rc.polygon(points, {
           fill: "#ffffff",
           fillStyle: "solid",
-          roughness: 1.8,
+          roughness: 2.2,
+          bowing: 2,
           stroke: "#1a1a1a",
-          strokeWidth: 2.5,
+          strokeWidth: 3,
           seed: 999,
         }),
       );
@@ -101,18 +116,57 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     if (bottomBanner) {
       const cx = CANVAS_WIDTH / 2;
       const bannerY = PYRAMID_TOP_Y + tiers.length * TIER_HEIGHT + 30;
+      const points = ribbonPoints(cx - 320, bannerY, cx + 320, bannerY + 70, 40);
       svg.appendChild(
-        rc.polygon(
-          [
-            [cx - 280, bannerY],
-            [cx + 280, bannerY],
-            [cx + 250, bannerY + 60],
-            [cx - 250, bannerY + 60],
-          ],
-          { fill: "#ffffff", fillStyle: "solid", roughness: 1.7, stroke: "#1a1a1a", strokeWidth: 2.5, seed: 1000 },
-        ),
+        rc.polygon(points, {
+          fill: "#ffffff",
+          fillStyle: "solid",
+          roughness: 2.2,
+          bowing: 2,
+          stroke: "#1a1a1a",
+          strokeWidth: 3,
+          seed: 1000,
+        }),
       );
     }
+
+    // A sketchy connecting arrow from the pyramid to the right-hand
+    // character — the same visual device Golpo uses to link a diagram to
+    // the people it's explaining. Drawn as a curved rough.js line with a
+    // solid triangular arrowhead, not a straight/geometric line.
+    const arrowStartX = CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 + 10;
+    const arrowStartY = PYRAMID_TOP_Y + TIER_HEIGHT;
+    const arrowEndX = arrowStartX + 90;
+    const arrowEndY = arrowStartY + 110;
+    svg.appendChild(
+      rc.curve(
+        [
+          [arrowStartX, arrowStartY],
+          [arrowStartX + 50, arrowStartY + 40],
+          [arrowEndX, arrowEndY],
+        ],
+        { stroke: "#c0392b", strokeWidth: 6, roughness: 1.9, seed: 1100 },
+      ),
+    );
+    const angle = Math.atan2(arrowEndY - (arrowStartY + 40), arrowEndX - (arrowStartX + 50));
+    const headLen = 22;
+    const headSpread = 0.5;
+    svg.appendChild(
+      rc.polygon(
+        [
+          [arrowEndX, arrowEndY],
+          [
+            arrowEndX - headLen * Math.cos(angle - headSpread),
+            arrowEndY - headLen * Math.sin(angle - headSpread),
+          ],
+          [
+            arrowEndX - headLen * Math.cos(angle + headSpread),
+            arrowEndY - headLen * Math.sin(angle + headSpread),
+          ],
+        ],
+        { fill: "#c0392b", fillStyle: "solid", stroke: "#c0392b", strokeWidth: 1, roughness: 1.5, seed: 1101 },
+      ),
+    );
 
     continueRender(handle);
   }, [handle, tierLayout, topLabel, bottomBanner, tiers.length]);
@@ -144,9 +198,9 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         <div
           style={{
             position: "absolute",
-            left: CANVAS_WIDTH / 2 - 110,
+            left: CANVAS_WIDTH / 2 - 150,
             top: PYRAMID_TOP_Y - 150,
-            width: 220,
+            width: 300,
             height: 100,
             display: "flex",
             alignItems: "center",
@@ -187,7 +241,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
             position: "absolute",
             left: 0,
             right: 0,
-            top: bannerY + 15,
+            top: bannerY + 22,
             textAlign: "center",
             fontFamily: "Arial, Helvetica, sans-serif",
             fontWeight: 800,

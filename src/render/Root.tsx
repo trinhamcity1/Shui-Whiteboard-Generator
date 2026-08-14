@@ -34,8 +34,8 @@ const SKETCH_DIAGRAM_TEST_PROPS: SketchDiagramProps = {
     { label: "LOCAL", color: "#eda45a" },
   ],
   bottomBanner: "UNITED STATES",
-  leftCharacterSrc: staticFile("test-assets/judge-candidate.png"),
-  rightCharacterSrc: staticFile("test-assets/officer-candidate.png"),
+  leftCharacterSrc: staticFile("test-assets/judge-candidate-transparent.png"),
+  rightCharacterSrc: staticFile("test-assets/officer-candidate-transparent.png"),
 };
 
 export function RemotionRoot() {
