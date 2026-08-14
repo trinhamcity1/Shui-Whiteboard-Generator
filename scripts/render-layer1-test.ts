@@ -10,7 +10,6 @@ import { printTimingWarnings } from "../src/render/timing";
 import { renderSceneDocumentJob } from "../src/pipeline/renderJob";
 import { resolveImages } from "../src/images/resolveImages";
 import { parseSceneDocument } from "../src/schema/scene";
-import { resolveAssetId } from "../src/images/assetLibrary/registryLookup";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -19,30 +18,18 @@ const VOICE_ID = process.env.TTS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
 // This sandbox's outbound proxy re-terminates TLS, and headless Chromium's
 // bundled cert store doesn't pick up the proxy's CA the way Node's fetch
 // does (confirmed working everywhere else this session) — so Chromium
-// can't fetch R2-hosted images directly during compositing here, even
-// though the registry lookup itself resolves the correct URL. A real
+// can't fetch R2-hosted images directly during compositing here. A real
 // Cloud Run deployment doesn't sit behind this proxy and won't hit this.
-// Workaround for local/dev rendering only: download the resolved asset
-// once via Node fetch (which does trust the CA) and serve it from public/
-// instead of asking Chromium to fetch R2 directly. Writing into the
-// pre-existing public/test-assets/ dir, not a brand-new subdirectory —
-// a fresh public/resolved-assets/ 404'd consistently even though the
-// files were verifiably present in Remotion's own bundle snapshot,
-// suggesting the bundler's publicDir copy doesn't reliably pick up an
-// entirely new subdirectory created between runs. test-assets/ already
-// existed and served correctly in earlier renders this session.
-async function downloadAssetLocally(assetId: string): Promise<string> {
-  const resolved = await resolveAssetId(assetId);
-  if (!resolved) throw new Error(`assetId "${assetId}" not found in registry.`);
-  const localDir = path.join(ROOT, "public", "test-assets");
-  fsSync.mkdirSync(localDir, { recursive: true });
-  const localPath = path.join(localDir, `resolved-${assetId}.png`);
-  const response = await fetch(resolved.imageUrl);
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const sharp = (await import("sharp")).default;
-  await sharp(buffer).png().toFile(localPath);
-  return `test-assets/resolved-${assetId}.png`;
-}
+// Also: downloading the resolved asset into public/ in the SAME process
+// right before calling bundle() consistently 404'd, even when the file
+// was verifiably present in Remotion's own bundle snapshot — but a file
+// that already existed in public/ *before this process started* (e.g.
+// committed in git, or written by an earlier separate process) serves
+// fine. So these two files were pre-downloaded via a separate one-off
+// command before this script ever runs — see git history for the exact
+// command. This script only references already-existing static files.
+const JUDGE_LOCAL_PATH = "test-assets/resolved-civics-judge-explaining.png";
+const OFFICER_LOCAL_PATH = "test-assets/resolved-civics-officer-explaining.png";
 
 // Layer 1's actual finish line: one real video, hand-authored (not
 // LLM-planned, so assetId/sketchDiagram are exercised deterministically),
@@ -93,15 +80,15 @@ async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set.");
 
-  console.log("Pre-downloading library assets for local rendering (sandbox workaround, see comment above)...");
-  const judgeLocalPath = await downloadAssetLocally("civics-judge-explaining");
-  const officerLocalPath = await downloadAssetLocally("civics-officer-explaining");
+  if (!fsSync.existsSync(path.join(ROOT, "public", JUDGE_LOCAL_PATH)) || !fsSync.existsSync(path.join(ROOT, "public", OFFICER_LOCAL_PATH))) {
+    throw new Error("Pre-downloaded local assets are missing — run the one-off download command first (see comment above).");
+  }
   const diagramAction = SCENE_DOCUMENT.actions.find((a) => a.type === "sketchDiagram") as
     | (typeof SCENE_DOCUMENT.actions)[number] & { sketchDiagram: { leftCharacterUrl?: string; rightCharacterUrl?: string } }
     | undefined;
   if (diagramAction) {
-    diagramAction.sketchDiagram.leftCharacterUrl = `/${judgeLocalPath}`;
-    diagramAction.sketchDiagram.rightCharacterUrl = `/${officerLocalPath}`;
+    diagramAction.sketchDiagram.leftCharacterUrl = `/${JUDGE_LOCAL_PATH}`;
+    diagramAction.sketchDiagram.rightCharacterUrl = `/${OFFICER_LOCAL_PATH}`;
   }
 
   console.log("Rendering Layer 1 test video (real TTS, real library assets, real sketchDiagram)...");
