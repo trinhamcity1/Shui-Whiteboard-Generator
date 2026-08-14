@@ -9,7 +9,7 @@ library grows itself after v1 ships, and how a scene actually gets composed
 from a topic instead of hand-authored.
 
 Prepared by: shareholder direction, this session · for: Shui WG engineering
-· status: draft, awaiting shareholder read before build starts
+· status: **approved — shareholder sign-off given, build in progress**
 
 ## Why this revision exists
 
