@@ -24,23 +24,24 @@ const VOICE_ID = process.env.TTS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
 // Cloud Run deployment doesn't sit behind this proxy and won't hit this.
 // Workaround for local/dev rendering only: download the resolved asset
 // once via Node fetch (which does trust the CA) and serve it from public/
-// instead of asking Chromium to fetch R2 directly.
+// instead of asking Chromium to fetch R2 directly. Writing into the
+// pre-existing public/test-assets/ dir, not a brand-new subdirectory —
+// a fresh public/resolved-assets/ 404'd consistently even though the
+// files were verifiably present in Remotion's own bundle snapshot,
+// suggesting the bundler's publicDir copy doesn't reliably pick up an
+// entirely new subdirectory created between runs. test-assets/ already
+// existed and served correctly in earlier renders this session.
 async function downloadAssetLocally(assetId: string): Promise<string> {
   const resolved = await resolveAssetId(assetId);
   if (!resolved) throw new Error(`assetId "${assetId}" not found in registry.`);
-  const localDir = path.join(ROOT, "public", "resolved-assets");
+  const localDir = path.join(ROOT, "public", "test-assets");
   fsSync.mkdirSync(localDir, { recursive: true });
-  const localPath = path.join(localDir, `${assetId}.png`);
+  const localPath = path.join(localDir, `resolved-${assetId}.png`);
   const response = await fetch(resolved.imageUrl);
   const buffer = Buffer.from(await response.arrayBuffer());
-  // Re-encode through sharp rather than writing the fetched bytes verbatim —
-  // headless Chromium's PNG decoder rejected the raw file from a prior run
-  // with "the source image cannot be decoded" even though it's a valid PNG
-  // by every other tool; a clean re-encode removes whatever it didn't like
-  // (likely something in the removeFlatBackground pipeline's raw->png path).
   const sharp = (await import("sharp")).default;
   await sharp(buffer).png().toFile(localPath);
-  return `resolved-assets/${assetId}.png`;
+  return `test-assets/resolved-${assetId}.png`;
 }
 
 // Layer 1's actual finish line: one real video, hand-authored (not
