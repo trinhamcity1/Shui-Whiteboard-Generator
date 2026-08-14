@@ -31,11 +31,15 @@ async function downloadAssetLocally(assetId: string): Promise<string> {
   const localDir = path.join(ROOT, "public", "resolved-assets");
   fsSync.mkdirSync(localDir, { recursive: true });
   const localPath = path.join(localDir, `${assetId}.png`);
-  if (!fsSync.existsSync(localPath)) {
-    const response = await fetch(resolved.imageUrl);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    fsSync.writeFileSync(localPath, buffer);
-  }
+  const response = await fetch(resolved.imageUrl);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  // Re-encode through sharp rather than writing the fetched bytes verbatim —
+  // headless Chromium's PNG decoder rejected the raw file from a prior run
+  // with "the source image cannot be decoded" even though it's a valid PNG
+  // by every other tool; a clean re-encode removes whatever it didn't like
+  // (likely something in the removeFlatBackground pipeline's raw->png path).
+  const sharp = (await import("sharp")).default;
+  await sharp(buffer).png().toFile(localPath);
   return `resolved-assets/${assetId}.png`;
 }
 
