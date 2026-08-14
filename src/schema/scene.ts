@@ -9,6 +9,7 @@ export const SceneActionType = z.enum([
   "comparisonCards",
   "quote",
   "fullBleedGraphic",
+  "sketchDiagram",
 ]);
 export type SceneActionType = z.infer<typeof SceneActionType>;
 
@@ -21,6 +22,29 @@ export const ComparisonCard = z.object({
   title: z.string(),
   items: z.array(z.string()),
 });
+
+// Revision-2 Layer 1 — mirrors SketchDiagram.tsx's props. Only "pyramid"
+// shape is implemented so far (flowchart/comparison come later), so this
+// schema only needs the pyramid fields for now.
+export const PyramidTierSchema = z.object({
+  label: z.string(),
+  color: z.string().optional(),
+});
+
+export const SketchDiagramSpec = z.object({
+  title: z.string(),
+  topLabel: z.string().optional(),
+  tiers: z.array(PyramidTierSchema).min(1),
+  bottomBanner: z.string().optional(),
+  leftCharacterAssetId: z.string().optional(),
+  rightCharacterAssetId: z.string().optional(),
+  // Populated by resolveImages (not author-supplied) once
+  // leftCharacterAssetId/rightCharacterAssetId are looked up in the
+  // registry — the renderer reads these, never the raw asset ids.
+  leftCharacterUrl: z.string().optional(),
+  rightCharacterUrl: z.string().optional(),
+});
+export type SketchDiagramSpec = z.infer<typeof SketchDiagramSpec>;
 
 export const SceneAction = z
   .object({
@@ -39,6 +63,12 @@ export const SceneAction = z
     // render. Never invented by the renderer itself; either a human author
     // or the LLM planner sets this, never a fabricated URL.
     imageConcept: z.string().max(300).optional(),
+    // Revision-2 Layer 1: selects a named asset from the trained-style
+    // library registry instead of describing a fresh image — the default
+    // path for any recurring character/prop. imageConcept stays supported
+    // as the documented fallback for a genuinely one-off illustration.
+    assetId: z.string().optional(),
+    sketchDiagram: SketchDiagramSpec.optional(),
     attribution: z.string().optional(),
   })
   .superRefine((action, ctx) => {
@@ -71,12 +101,13 @@ export const SceneAction = z
       case "fullBleedGraphic":
         // A real document scan/artifact must be supplied directly
         // (imageUrl) — no generator should invent a fake document and pass
-        // it off as one. Illustrative art may instead describe what to
-        // draw (imageConcept), resolved to a real image before render.
-        if (action.imageUrl === undefined && action.imageConcept === undefined) {
+        // it off as one. Illustrative art may instead select a library
+        // asset (assetId, the default) or describe a one-off (imageConcept),
+        // resolved to a real image before render.
+        if (action.imageUrl === undefined && action.imageConcept === undefined && action.assetId === undefined) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `SceneAction of type "${action.type}" requires either "imageUrl" or "imageConcept"`,
+            message: `SceneAction of type "${action.type}" requires "imageUrl", "imageConcept", or "assetId"`,
             path: ["imageUrl"],
           });
         }
@@ -86,6 +117,9 @@ export const SceneAction = z
         break;
       case "comparisonCards":
         requireField("comparisonCards", "comparisonCards");
+        break;
+      case "sketchDiagram":
+        requireField("sketchDiagram", "sketchDiagram");
         break;
     }
   });

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { SceneAction, type SceneAction as SceneActionT } from "./scene";
 import { AVAILABLE_ICON_NAMES } from "../render/icons/registry";
+import { ASSET_MANIFEST } from "../images/assetLibrary/manifest";
 
 export interface ScenePlanningResult {
   actions: SceneActionT[];
@@ -23,6 +24,9 @@ const WORDS_PER_SECOND = 2.5; // ~150 wpm, a normal narration pace
 // Phase 4: the planner may now request illustrations too — resolved to a
 // real image by the image-generation pipeline step before render, so the
 // planner never needs (or is allowed) to invent an imageUrl itself.
+// Revision-2 Layer 1: sketchDiagram joins the vocabulary too, for a
+// structured multi-tier diagram (rough.js shapes + real text, never
+// AI-rendered text).
 const PLANNABLE_ACTION_TYPES = [
   "titleCard",
   "bulletList",
@@ -32,9 +36,19 @@ const PLANNABLE_ACTION_TYPES = [
   "quote",
   "documentReveal",
   "fullBleedGraphic",
+  "sketchDiagram",
 ] as const;
 
 const PlannedActionsSchema = z.array(SceneAction).min(1);
+
+// One line per manifest entry — enough for the planner to pick a sensible
+// assetId without needing to see the actual generated image.
+function buildAssetCatalog(): string {
+  return ASSET_MANIFEST.map((entry) => {
+    const summary = entry.role === "character" ? `${entry.pose} (${entry.attire})` : entry.description;
+    return `  - "${entry.id}" [${entry.tier}/${entry.role}]: ${summary}`;
+  }).join("\n");
+}
 
 function buildSystemPrompt(estimatedDurationSeconds: number): string {
   return `You are planning the visual timeline for a whiteboard-style narrated video.
@@ -53,16 +67,30 @@ Rules:
   - timeline: "timelineEntries" (array of {"year": number, "label": string})
   - comparisonCards: "comparisonCards" (array of {"title": string, "items": string[]})
   - quote: "text" (and optionally "attribution")
-  - documentReveal / fullBleedGraphic: "imageConcept" (a short, concrete description of exactly what
-    should be drawn — specific enough that an illustrator with no other context could draw it correctly).
-    NEVER set "imageUrl" yourself — you have no real images, only descriptions.
+  - documentReveal / fullBleedGraphic: prefer "assetId" (see the library below) when a matching character
+    or prop already exists in the library — it costs nothing and is guaranteed style-consistent. Only fall
+    back to "imageConcept" (a short, concrete description of exactly what should be drawn) for something
+    genuinely not in the library. NEVER set "imageUrl" yourself — you have no real images, only descriptions
+    and asset ids.
+  - sketchDiagram: "sketchDiagram" object — {"title": string, "tiers": [{"label": string}, ...],
+    "topLabel"?: string, "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}.
+    Use this for a structured multi-part hierarchy or process the script actually describes (e.g. "federal,
+    state, and local government" — a real pyramid, not a metaphor). Tier labels are drawn as real text, always
+    correctly spelled — never ask for a diagram with words baked into an imageConcept/assetId illustration.
+    leftCharacterAssetId/rightCharacterAssetId are optional — use them only when a character from the
+    library naturally belongs beside the diagram (e.g. a judge beside a courts-related pyramid).
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
-  concrete and drawable — an object, a place, a process, a diagram. Use "documentReveal" when the script
-  references an actual document, artifact, or figure worth showing prominently.
-- Use illustrations SPARINGLY: 1-3 per video, not every scene. Most of the video should still carry its
-  point through bulletList/iconCallout/timeline — reserve illustration for the moments that most benefit
-  from a real picture. If nothing in the script is concretely drawable (e.g. an abstract argument), it is
-  correct to use zero illustrations and rely on the typographic components alone.
+  concrete and drawable — an object, a place, a process. Use "documentReveal" when the script references an
+  actual document, artifact, or figure worth showing prominently. Use "sketchDiagram" specifically when the
+  script describes a structured hierarchy, multi-step process, or comparison — never force a diagram where
+  a plain illustration or bulletList fits better.
+- Use illustrations/diagrams SPARINGLY: 1-3 per video, not every scene. Most of the video should still carry
+  its point through bulletList/iconCallout/timeline — reserve visuals for the moments that most benefit from
+  one. If nothing in the script is concretely drawable (e.g. an abstract argument), it is correct to use zero
+  and rely on the typographic components alone.
+
+Asset library (use "assetId" with one of these exact ids when it fits — do not invent an id that isn't listed):
+${buildAssetCatalog()}
 - Actions should cover roughly 0 to ${estimatedDurationSeconds.toFixed(1)} seconds (the estimated
   narration length), with each action's atSeconds + durationSeconds not exceeding that total by much.
 - Start with a titleCard summarizing the topic.

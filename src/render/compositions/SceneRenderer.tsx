@@ -9,6 +9,7 @@ import { Timeline } from "../components/Timeline";
 import { ComparisonCards } from "../components/ComparisonCards";
 import { Quote } from "../components/Quote";
 import { FullBleedGraphic } from "../components/FullBleedGraphic";
+import { SketchDiagram } from "../components/SketchDiagram";
 import { ThemeProvider } from "../theme/ThemeContext";
 import { getTheme } from "../theme/themes";
 
@@ -30,6 +31,20 @@ function ActionRenderer({ action }: { action: SceneAction }) {
       return <Quote text={action.text ?? ""} attribution={action.attribution} startFrame={0} />;
     case "fullBleedGraphic":
       return <FullBleedGraphic imageUrl={action.imageUrl ?? ""} startFrame={0} />;
+    case "sketchDiagram": {
+      const diagram = action.sketchDiagram;
+      if (!diagram) return null;
+      return (
+        <SketchDiagram
+          title={diagram.title}
+          topLabel={diagram.topLabel}
+          tiers={diagram.tiers}
+          bottomBanner={diagram.bottomBanner}
+          leftCharacterSrc={diagram.leftCharacterUrl}
+          rightCharacterSrc={diagram.rightCharacterUrl}
+        />
+      );
+    }
   }
 }
 
