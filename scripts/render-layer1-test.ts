@@ -1,6 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
@@ -9,10 +10,34 @@ import { printTimingWarnings } from "../src/render/timing";
 import { renderSceneDocumentJob } from "../src/pipeline/renderJob";
 import { resolveImages } from "../src/images/resolveImages";
 import { parseSceneDocument } from "../src/schema/scene";
+import { resolveAssetId } from "../src/images/assetLibrary/registryLookup";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const VOICE_ID = process.env.TTS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
+
+// This sandbox's outbound proxy re-terminates TLS, and headless Chromium's
+// bundled cert store doesn't pick up the proxy's CA the way Node's fetch
+// does (confirmed working everywhere else this session) — so Chromium
+// can't fetch R2-hosted images directly during compositing here, even
+// though the registry lookup itself resolves the correct URL. A real
+// Cloud Run deployment doesn't sit behind this proxy and won't hit this.
+// Workaround for local/dev rendering only: download the resolved asset
+// once via Node fetch (which does trust the CA) and serve it from public/
+// instead of asking Chromium to fetch R2 directly.
+async function downloadAssetLocally(assetId: string): Promise<string> {
+  const resolved = await resolveAssetId(assetId);
+  if (!resolved) throw new Error(`assetId "${assetId}" not found in registry.`);
+  const localDir = path.join(ROOT, "public", "resolved-assets");
+  fsSync.mkdirSync(localDir, { recursive: true });
+  const localPath = path.join(localDir, `${assetId}.png`);
+  if (!fsSync.existsSync(localPath)) {
+    const response = await fetch(resolved.imageUrl);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    fsSync.writeFileSync(localPath, buffer);
+  }
+  return `resolved-assets/${assetId}.png`;
+}
 
 // Layer 1's actual finish line: one real video, hand-authored (not
 // LLM-planned, so assetId/sketchDiagram are exercised deterministically),
@@ -62,6 +87,17 @@ const SCENE_DOCUMENT = {
 async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set.");
+
+  console.log("Pre-downloading library assets for local rendering (sandbox workaround, see comment above)...");
+  const judgeLocalPath = await downloadAssetLocally("civics-judge-explaining");
+  const officerLocalPath = await downloadAssetLocally("civics-officer-explaining");
+  const diagramAction = SCENE_DOCUMENT.actions.find((a) => a.type === "sketchDiagram") as
+    | (typeof SCENE_DOCUMENT.actions)[number] & { sketchDiagram: { leftCharacterUrl?: string; rightCharacterUrl?: string } }
+    | undefined;
+  if (diagramAction) {
+    diagramAction.sketchDiagram.leftCharacterUrl = `/${judgeLocalPath}`;
+    diagramAction.sketchDiagram.rightCharacterUrl = `/${officerLocalPath}`;
+  }
 
   console.log("Rendering Layer 1 test video (real TTS, real library assets, real sketchDiagram)...");
   const outputDir = path.join(ROOT, "output");
