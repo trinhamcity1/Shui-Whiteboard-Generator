@@ -7,3 +7,4 @@ public/tts-audio*.mp3
 !.env.example
 *.log
 .DS_Store
+style-model-candidates/
