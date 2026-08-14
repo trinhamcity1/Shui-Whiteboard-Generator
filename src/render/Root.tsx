@@ -83,6 +83,9 @@ export function RemotionRoot() {
         defaultProps={{
           buildingSrc: staticFile("test-assets/government-building-transparent.png"),
           characterSrc: staticFile("test-assets/judge-candidate-transparent.png"),
+          buildingNaturalWidth: 745,
+          buildingNaturalHeight: 735,
+          label: { text: "JUSTICE", xFraction: 0.5, yFraction: 0.465, fontSize: 34 },
         }}
       />
     </>
