@@ -1,7 +1,10 @@
 import "dotenv/config";
 import path from "node:path";
 import { generateCandidates } from "../src/images/styleModel/candidateGen";
+import fs from "node:fs";
 import { trainStyleModel } from "../src/images/styleModel/train";
+import { generateStyleModelTestAssets } from "../src/images/styleModel/testGenerate";
+import type { StyleModelVersion } from "../src/images/styleModel/types";
 
 // Amendment §6/§8: Plan A step 1-2. Run in stages so nothing past the
 // candidates step spends money until a human has actually looked at output:
@@ -51,7 +54,30 @@ async function main() {
     return;
   }
 
-  throw new Error(`Unknown step "${step}". Valid steps: candidates, train.`);
+  if (step === "test") {
+    const versionPath = path.join(process.cwd(), "style-model-candidates", "style-model-version.json");
+    const styleModel = JSON.parse(fs.readFileSync(versionPath, "utf-8")) as StyleModelVersion;
+    const outDir = path.join(process.cwd(), "style-model-candidates", "signoff-test");
+
+    // Deliberately new subjects — not the curated training images — so the
+    // sign-off gate actually tests generalization, not memorization.
+    const subjects = [
+      { id: "test-narrator-waving", description: "a friendly narrator character waving hello" },
+      { id: "test-scroll-prop", description: "an unrolled parchment scroll" },
+      { id: "test-officer-standing", description: "a formally dressed official character standing at ease" },
+    ];
+
+    console.log(`Generating ${subjects.length} sign-off test assets through trained model ${styleModel.version}...`);
+    console.log(`Estimated cost: $${(subjects.length * 0.03).toFixed(2)}\n`);
+
+    const assets = await generateStyleModelTestAssets({ apiKey, styleModel, subjects, outDir });
+    const totalCost = assets.reduce((sum, a) => sum + a.costUsd, 0);
+    console.log(`\nGenerated ${assets.length} test assets for $${totalCost.toFixed(2)}.`);
+    console.log(`Output: ${outDir}`);
+    return;
+  }
+
+  throw new Error(`Unknown step "${step}". Valid steps: candidates, train, test.`);
 }
 
 main().catch((err) => {
