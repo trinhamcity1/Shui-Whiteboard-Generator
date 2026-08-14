@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import rough from "roughjs";
 import { AbsoluteFill, Img, continueRender, delayRender } from "remotion";
+import { SKETCH_COLORS, SKETCH_LINE, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss, waitForSketchFont } from "../sketchStyle";
 
 /**
  * Proof-of-concept for the amendment §5 sketchDiagram action type — NOT yet
@@ -10,11 +11,15 @@ import { AbsoluteFill, Img, continueRender, delayRender } from "remotion";
  * into something resembling the Golpo reference (a labeled pyramid with
  * characters beside it), the way the amendment claims. Only "pyramid" is
  * implemented — flowchart/comparison come later if this direction is approved.
+ *
+ * Every color/line/font choice below comes from ../sketchStyle.ts, not a
+ * local constant — that file is the one place to tune "does this look like
+ * Golpo" so future sketch-based components don't quietly drift apart.
  */
 
 export interface PyramidTier {
   label: string;
-  color: string;
+  color?: string; // defaults to SKETCH_COLORS.tierPalette by index
 }
 
 export type SketchDiagramProps = {
@@ -34,7 +39,8 @@ const TOP_WIDTH = 260;
 const BOTTOM_WIDTH = 620;
 
 /** A tapered ribbon-banner hexagon (pointed left/right ends), not a plain rectangle. */
-function ribbonPoints(x0: number, y0: number, x1: number, y1: number, notch: number): [number, number][] {
+function ribbonPoints(x0: number, y0: number, x1: number, y1: number): [number, number][] {
+  const notch = (x1 - x0) * SKETCH_LAYOUT.ribbonNotchRatio;
   const yc = (y0 + y1) / 2;
   return [
     [x0 + notch, y0],
@@ -70,111 +76,133 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   rightCharacterSrc,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [handle] = useState(() => delayRender("Drawing rough.js sketch diagram"));
+  const [handle] = useState(() => delayRender("Loading font + drawing rough.js sketch diagram"));
 
-  const tierLayout = useMemo(() => tiers.map((tier, i) => ({ tier, ...tierPolygon(i, tiers.length) })), [tiers]);
+  const tierLayout = useMemo(
+    () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length] }, ...tierPolygon(i, tiers.length) })),
+    [tiers],
+  );
+
+  const pyramidStackHeight = tiers.length * TIER_HEIGHT;
+  const pyramidBaseY = PYRAMID_TOP_Y + pyramidStackHeight;
+  const characterHeight = pyramidStackHeight * SKETCH_LAYOUT.characterToPyramidHeightRatio;
+  const characterTop = pyramidBaseY - characterHeight;
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
-    const rc = rough.svg(svg);
+    let cancelled = false;
 
-    // Fixed seeds throughout — roughjs's "sketchy" wobble is randomized by
-    // default, and an unseeded shape would redraw slightly differently on
-    // every frame Remotion captures, producing a flickering diagram instead
-    // of a stable one.
-    tierLayout.forEach(({ tier, points }, i) => {
+    (async () => {
+      await waitForSketchFont();
+      if (cancelled) return;
+
+      const svg = svgRef.current;
+      if (!svg) return;
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      const rc = rough.svg(svg);
+
+      // Fixed seeds throughout — roughjs's "sketchy" wobble is randomized
+      // by default, and an unseeded shape would redraw slightly differently
+      // on every frame Remotion captures, producing a flickering diagram
+      // instead of a stable one.
+      tierLayout.forEach(({ tier, points }, i) => {
+        svg.appendChild(
+          rc.polygon(points, {
+            fill: tier.color,
+            fillStyle: SKETCH_LINE.fillStyle,
+            roughness: SKETCH_LINE.roughness,
+            bowing: SKETCH_LINE.bowing,
+            stroke: SKETCH_COLORS.ink,
+            strokeWidth: SKETCH_LINE.strokeWidth,
+            seed: 100 + i,
+          }),
+        );
+      });
+
+      if (topLabel) {
+        const cx = CANVAS_WIDTH / 2;
+        const points = ribbonPoints(cx - 150, PYRAMID_TOP_Y - 150, cx + 150, PYRAMID_TOP_Y - 50);
+        svg.appendChild(
+          rc.polygon(points, {
+            fill: SKETCH_COLORS.panelFill,
+            fillStyle: SKETCH_LINE.fillStyle,
+            roughness: SKETCH_LINE.roughness,
+            bowing: SKETCH_LINE.bowing,
+            stroke: SKETCH_COLORS.ink,
+            strokeWidth: SKETCH_LINE.strokeWidth,
+            seed: 999,
+          }),
+        );
+      }
+
+      if (bottomBanner) {
+        const cx = CANVAS_WIDTH / 2;
+        const bannerY = pyramidBaseY + 30;
+        const points = ribbonPoints(cx - 320, bannerY, cx + 320, bannerY + 70);
+        svg.appendChild(
+          rc.polygon(points, {
+            fill: SKETCH_COLORS.panelFill,
+            fillStyle: SKETCH_LINE.fillStyle,
+            roughness: SKETCH_LINE.roughness,
+            bowing: SKETCH_LINE.bowing,
+            stroke: SKETCH_COLORS.ink,
+            strokeWidth: SKETCH_LINE.strokeWidth,
+            seed: 1000,
+          }),
+        );
+      }
+
+      // A sketchy connecting arrow from the pyramid to the right-hand
+      // character — the same visual device Golpo uses to link a diagram to
+      // the people it's explaining. Drawn as a curved rough.js line with a
+      // solid triangular arrowhead, not a straight/geometric line.
+      const arrowStartX = CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 + 10;
+      const arrowStartY = PYRAMID_TOP_Y + TIER_HEIGHT;
+      const arrowEndX = arrowStartX + 90;
+      const arrowEndY = arrowStartY + 110;
       svg.appendChild(
-        rc.polygon(points, {
-          fill: tier.color,
-          fillStyle: "solid",
-          roughness: 1.7,
-          stroke: "#1a1a1a",
-          strokeWidth: 2.5,
-          seed: 100 + i,
-        }),
-      );
-    });
-
-    if (topLabel) {
-      const cx = CANVAS_WIDTH / 2;
-      const points = ribbonPoints(cx - 150, PYRAMID_TOP_Y - 150, cx + 150, PYRAMID_TOP_Y - 50, 24);
-      svg.appendChild(
-        rc.polygon(points, {
-          fill: "#ffffff",
-          fillStyle: "solid",
-          roughness: 2.2,
-          bowing: 2,
-          stroke: "#1a1a1a",
-          strokeWidth: 3,
-          seed: 999,
-        }),
-      );
-    }
-
-    if (bottomBanner) {
-      const cx = CANVAS_WIDTH / 2;
-      const bannerY = PYRAMID_TOP_Y + tiers.length * TIER_HEIGHT + 30;
-      const points = ribbonPoints(cx - 320, bannerY, cx + 320, bannerY + 70, 40);
-      svg.appendChild(
-        rc.polygon(points, {
-          fill: "#ffffff",
-          fillStyle: "solid",
-          roughness: 2.2,
-          bowing: 2,
-          stroke: "#1a1a1a",
-          strokeWidth: 3,
-          seed: 1000,
-        }),
-      );
-    }
-
-    // A sketchy connecting arrow from the pyramid to the right-hand
-    // character — the same visual device Golpo uses to link a diagram to
-    // the people it's explaining. Drawn as a curved rough.js line with a
-    // solid triangular arrowhead, not a straight/geometric line.
-    const arrowStartX = CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 + 10;
-    const arrowStartY = PYRAMID_TOP_Y + TIER_HEIGHT;
-    const arrowEndX = arrowStartX + 90;
-    const arrowEndY = arrowStartY + 110;
-    svg.appendChild(
-      rc.curve(
-        [
-          [arrowStartX, arrowStartY],
-          [arrowStartX + 50, arrowStartY + 40],
-          [arrowEndX, arrowEndY],
-        ],
-        { stroke: "#c0392b", strokeWidth: 6, roughness: 1.9, seed: 1100 },
-      ),
-    );
-    const angle = Math.atan2(arrowEndY - (arrowStartY + 40), arrowEndX - (arrowStartX + 50));
-    const headLen = 22;
-    const headSpread = 0.5;
-    svg.appendChild(
-      rc.polygon(
-        [
-          [arrowEndX, arrowEndY],
+        rc.curve(
           [
-            arrowEndX - headLen * Math.cos(angle - headSpread),
-            arrowEndY - headLen * Math.sin(angle - headSpread),
+            [arrowStartX, arrowStartY],
+            [arrowStartX + 50, arrowStartY + 40],
+            [arrowEndX, arrowEndY],
           ],
+          { stroke: SKETCH_COLORS.accentArrow, strokeWidth: 6, roughness: SKETCH_LINE.roughness, seed: 1100 },
+        ),
+      );
+      const angle = Math.atan2(arrowEndY - (arrowStartY + 40), arrowEndX - (arrowStartX + 50));
+      const headLen = 22;
+      const headSpread = 0.5;
+      svg.appendChild(
+        rc.polygon(
           [
-            arrowEndX - headLen * Math.cos(angle + headSpread),
-            arrowEndY - headLen * Math.sin(angle + headSpread),
+            [arrowEndX, arrowEndY],
+            [arrowEndX - headLen * Math.cos(angle - headSpread), arrowEndY - headLen * Math.sin(angle - headSpread)],
+            [arrowEndX - headLen * Math.cos(angle + headSpread), arrowEndY - headLen * Math.sin(angle + headSpread)],
           ],
-        ],
-        { fill: "#c0392b", fillStyle: "solid", stroke: "#c0392b", strokeWidth: 1, roughness: 1.5, seed: 1101 },
-      ),
-    );
+          {
+            fill: SKETCH_COLORS.accentArrow,
+            fillStyle: SKETCH_LINE.fillStyle,
+            stroke: SKETCH_COLORS.accentArrow,
+            strokeWidth: 1,
+            roughness: 1.5,
+            seed: 1101,
+          },
+        ),
+      );
 
-    continueRender(handle);
-  }, [handle, tierLayout, topLabel, bottomBanner, tiers.length]);
+      continueRender(handle);
+    })();
 
-  const bannerY = PYRAMID_TOP_Y + tiers.length * TIER_HEIGHT + 30;
+    return () => {
+      cancelled = true;
+    };
+  }, [handle, tierLayout, topLabel, bottomBanner, pyramidBaseY]);
+
+  const bannerY = pyramidBaseY + 30;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#faf6ec" }}>
+    <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
+      <style>{sketchFontFaceCss}</style>
       <div
         style={{
           position: "absolute",
@@ -182,11 +210,10 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           left: 0,
           right: 0,
           textAlign: "center",
-          fontFamily: "Arial, Helvetica, sans-serif",
-          fontWeight: 900,
-          fontSize: 42,
+          fontFamily: SKETCH_FONT_FAMILY,
+          fontSize: 46,
           letterSpacing: 1,
-          color: "#1a1a1a",
+          color: SKETCH_COLORS.ink,
         }}
       >
         {title}
@@ -205,11 +232,10 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontFamily: "Arial, Helvetica, sans-serif",
-            fontWeight: 800,
-            fontSize: 22,
+            fontFamily: SKETCH_FONT_FAMILY,
+            fontSize: 24,
             textAlign: "center",
-            color: "#1a1a1a",
+            color: SKETCH_COLORS.ink,
           }}
         >
           {topLabel}
@@ -225,10 +251,9 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
             right: 0,
             top: midY - 22,
             textAlign: "center",
-            fontFamily: "Arial, Helvetica, sans-serif",
-            fontWeight: 800,
+            fontFamily: SKETCH_FONT_FAMILY,
             fontSize: 34,
-            color: "#1a1a1a",
+            color: SKETCH_COLORS.ink,
           }}
         >
           {tier.label}
@@ -243,10 +268,9 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
             right: 0,
             top: bannerY + 22,
             textAlign: "center",
-            fontFamily: "Arial, Helvetica, sans-serif",
-            fontWeight: 800,
-            fontSize: 26,
-            color: "#1a1a1a",
+            fontFamily: SKETCH_FONT_FAMILY,
+            fontSize: 28,
+            color: SKETCH_COLORS.ink,
           }}
         >
           {bottomBanner}
@@ -256,13 +280,13 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       {leftCharacterSrc && (
         <Img
           src={leftCharacterSrc}
-          style={{ position: "absolute", left: 20, top: 320, width: 240, height: "auto" }}
+          style={{ position: "absolute", left: 20, top: characterTop, height: characterHeight, width: "auto" }}
         />
       )}
       {rightCharacterSrc && (
         <Img
           src={rightCharacterSrc}
-          style={{ position: "absolute", right: 20, top: 320, width: 240, height: "auto" }}
+          style={{ position: "absolute", right: 20, top: characterTop, height: characterHeight, width: "auto" }}
         />
       )}
     </AbsoluteFill>

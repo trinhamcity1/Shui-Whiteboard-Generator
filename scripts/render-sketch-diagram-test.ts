@@ -14,9 +14,10 @@ const ROOT = path.resolve(__dirname, "..");
 // wired into the real pipeline; just answers "is this composite possible"
 // before the sketchDiagram action type gets built for real.
 async function main() {
+  const compositionId = process.argv[2] ?? "SketchDiagramTest";
   const outputDir = path.join(ROOT, "output");
   await fs.mkdir(outputDir, { recursive: true });
-  const outputLocation = path.join(outputDir, "sketch-diagram-test.png");
+  const outputLocation = path.join(outputDir, `${compositionId}.png`);
 
   console.log("Bundling Remotion project...");
   const bundleLocation = await bundle({
@@ -25,7 +26,7 @@ async function main() {
 
   const composition = await selectComposition({
     serveUrl: bundleLocation,
-    id: "SketchDiagramTest",
+    id: compositionId,
   });
 
   console.log("Rendering still frame...");

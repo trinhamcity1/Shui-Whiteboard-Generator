@@ -3,6 +3,7 @@ import { Composition, staticFile } from "remotion";
 import { SceneRenderer, type SceneRendererProps } from "./compositions/SceneRenderer";
 import type { SceneDocument } from "../schema/scene";
 import { SketchDiagram, type SketchDiagramProps } from "./components/SketchDiagram";
+import { BuildingCompositeTest } from "./components/BuildingCompositeTest";
 
 const FPS = 30;
 const VERTICAL = { width: 1080, height: 1920 };
@@ -71,6 +72,18 @@ export function RemotionRoot() {
         height={800}
         durationInFrames={1}
         defaultProps={SKETCH_DIAGRAM_TEST_PROPS}
+      />
+      <Composition
+        id="BuildingCompositeTest"
+        component={BuildingCompositeTest}
+        fps={30}
+        width={1000}
+        height={800}
+        durationInFrames={1}
+        defaultProps={{
+          buildingSrc: staticFile("test-assets/government-building-transparent.png"),
+          characterSrc: staticFile("test-assets/judge-candidate-transparent.png"),
+        }}
       />
     </>
   );

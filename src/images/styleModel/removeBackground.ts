@@ -84,5 +84,10 @@ export async function removeFlatBackground(args: {
     queue.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
   }
 
-  await sharp(data, { raw: { width, height, channels: 4 } }).png().toFile(outputPath);
+  // The candidate images bake in a lot of empty headroom around the
+  // subject (a full painterly composition, not a tightly cropped asset),
+  // which made a character look tiny when scaled by a fixed width next to
+  // a diagram. Trim the now-transparent margins down to the subject's real
+  // bounding box so callers can scale by *actual* character height.
+  await sharp(data, { raw: { width, height, channels: 4 } }).trim().png().toFile(outputPath);
 }
