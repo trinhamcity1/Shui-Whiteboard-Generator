@@ -8,13 +8,23 @@
  * Tier 2 set gets built next.
  */
 
+// A prior version of this clause asked for "atmospheric soft lighting,
+// gentle painterly depth with a softly blended background wash" — meant to
+// describe brushwork on the SUBJECT, but every training image ended up
+// with a background wash too, and the trained LoRA learned that wash (a
+// vignette/glow) as an inherent part of the style. Every future generation
+// then carried a halo that plain background-removal couldn't fully key
+// out. The fix is below: keep the painterly texture instruction scoped to
+// the subject, and explicitly forbid any background treatment beyond a
+// flat, uniform fill, so background removal has a clean, reliable target.
 const STYLE_CLAUSE =
   "Warm, painterly storybook illustration. Soft gouache-textured brushwork with visible " +
-  "hand-painted texture, warm earthy color palette (ochre, terracotta, sage green, cream), " +
-  "atmospheric soft lighting, gentle painterly depth with a softly blended background wash. " +
-  "Expressive, warm, simplified faces with real personality — not blank or geometric. " +
-  "Rounded, friendly character proportions. Standalone illustration, plain warm cream " +
-  "background, no text, no lettering, no watermark.";
+  "hand-painted texture on the subject itself, warm earthy color palette (ochre, terracotta, " +
+  "sage green, cream). Expressive, warm, simplified faces with real personality — not blank or " +
+  "geometric. Rounded, friendly character proportions. Standalone illustration on a FLAT, " +
+  "SOLID, PERFECTLY UNIFORM cream background color — absolutely no vignette, no glow, no " +
+  "gradient, no atmospheric lighting effect, no shading or wash of any kind behind the subject. " +
+  "No text, no lettering, no watermark, no signature.";
 
 const CHARACTER_SUBJECTS: Array<{ label: string; description: string }> = [
   { label: "narrator, explaining", description: "a friendly narrator character, one hand raised mid-explanation, facing forward" },
