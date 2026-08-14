@@ -8,3 +8,4 @@ public/tts-audio*.mp3
 *.log
 .DS_Store
 style-model-candidates/
+public/resolved-assets/
