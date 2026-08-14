@@ -1,7 +1,8 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, staticFile } from "remotion";
 import { SceneRenderer, type SceneRendererProps } from "./compositions/SceneRenderer";
 import type { SceneDocument } from "../schema/scene";
+import { SketchDiagram, type SketchDiagramProps } from "./components/SketchDiagram";
 
 const FPS = 30;
 const VERTICAL = { width: 1080, height: 1920 };
@@ -20,29 +21,57 @@ const DEFAULT_SCENE_DOCUMENT: SceneDocument = {
   actions: [],
 };
 
+// Proof-of-concept only (see SketchDiagram.tsx) — not part of the shipped
+// scene schema. Mimics the Golpo "Hierarchy of Law" reference frame to
+// validate the rough.js + real-text + library-character composite approach
+// before committing engineering time to the full sketchDiagram action type.
+const SKETCH_DIAGRAM_TEST_PROPS: SketchDiagramProps = {
+  title: "HIERARCHY OF LAW",
+  topLabel: "CONSTITUTION",
+  tiers: [
+    { label: "FEDERAL", color: "#5b8dd6" },
+    { label: "STATE", color: "#e07bab" },
+    { label: "LOCAL", color: "#eda45a" },
+  ],
+  bottomBanner: "UNITED STATES",
+  leftCharacterSrc: staticFile("test-assets/judge-candidate.png"),
+  rightCharacterSrc: staticFile("test-assets/officer-candidate.png"),
+};
+
 export function RemotionRoot() {
   return (
-    <Composition
-      id="SceneRenderer"
-      component={SceneRenderer}
-      fps={FPS}
-      width={VERTICAL.width}
-      height={VERTICAL.height}
-      durationInFrames={FPS * 60}
-      defaultProps={{
-        sceneDocument: DEFAULT_SCENE_DOCUMENT,
-        audioFileName: "tts-audio.mp3",
-        totalDurationSeconds: 60,
-      } satisfies SceneInputProps}
-      calculateMetadata={async ({ props }) => {
-        const { totalDurationSeconds, sceneDocument } = props as SceneInputProps;
-        const dimensions = sceneDocument.orientation === "horizontal" ? HORIZONTAL : VERTICAL;
-        return {
-          durationInFrames: Math.max(1, Math.round(totalDurationSeconds * FPS)),
-          width: dimensions.width,
-          height: dimensions.height,
-        };
-      }}
-    />
+    <>
+      <Composition
+        id="SceneRenderer"
+        component={SceneRenderer}
+        fps={FPS}
+        width={VERTICAL.width}
+        height={VERTICAL.height}
+        durationInFrames={FPS * 60}
+        defaultProps={{
+          sceneDocument: DEFAULT_SCENE_DOCUMENT,
+          audioFileName: "tts-audio.mp3",
+          totalDurationSeconds: 60,
+        } satisfies SceneInputProps}
+        calculateMetadata={async ({ props }) => {
+          const { totalDurationSeconds, sceneDocument } = props as SceneInputProps;
+          const dimensions = sceneDocument.orientation === "horizontal" ? HORIZONTAL : VERTICAL;
+          return {
+            durationInFrames: Math.max(1, Math.round(totalDurationSeconds * FPS)),
+            width: dimensions.width,
+            height: dimensions.height,
+          };
+        }}
+      />
+      <Composition
+        id="SketchDiagramTest"
+        component={SketchDiagram}
+        fps={30}
+        width={1000}
+        height={800}
+        durationInFrames={1}
+        defaultProps={SKETCH_DIAGRAM_TEST_PROPS}
+      />
+    </>
   );
 }

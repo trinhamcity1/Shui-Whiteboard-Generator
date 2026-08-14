@@ -16,6 +16,7 @@
     "render-illustration-quality-test": "tsx scripts/render-illustration-quality-test.ts",
     "generate-asset-library": "tsx scripts/generate-asset-library.ts",
     "train-style-model": "tsx scripts/train-style-model.ts",
+    "render-sketch-diagram-test": "tsx scripts/render-sketch-diagram-test.ts",
     "serve": "tsx src/api/server.ts",
     "create-api-key": "tsx scripts/create-api-key.ts",
     "deploy": "bash scripts/deploy-cloud-run.sh",
@@ -37,6 +38,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "remotion": "^4.0.190",
+    "roughjs": "^4.6.6",
     "zod": "^3.23.8"
   },
   "devDependencies": {
