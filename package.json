@@ -18,6 +18,7 @@
     "train-style-model": "tsx scripts/train-style-model.ts",
     "render-sketch-diagram-test": "tsx scripts/render-sketch-diagram-test.ts",
     "generate-v1-library": "tsx scripts/generate-v1-library.ts",
+    "render-layer1-test": "tsx scripts/render-layer1-test.ts",
     "serve": "tsx src/api/server.ts",
     "create-api-key": "tsx scripts/create-api-key.ts",
     "deploy": "bash scripts/deploy-cloud-run.sh",
