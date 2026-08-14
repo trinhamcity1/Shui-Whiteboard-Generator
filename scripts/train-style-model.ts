@@ -19,6 +19,7 @@ async function main() {
   const args = process.argv.slice(2);
   const step = parseArg(args, "step") ?? "candidates";
   const count = Number(parseArg(args, "count") ?? "10");
+  const pool = (parseArg(args, "pool") ?? "default") as "default" | "diagram";
 
   if (step !== "candidates") {
     throw new Error(
@@ -31,11 +32,11 @@ async function main() {
     throw new Error("FLUX_API_KEY is required (fal.ai key, same one used for Phase 4 Flux generation).");
   }
 
-  const outDir = path.join(process.cwd(), "style-model-candidates");
-  console.log(`Generating ${count} storybook candidates → ${outDir}`);
+  const outDir = path.join(process.cwd(), "style-model-candidates", pool);
+  console.log(`Generating ${count} storybook candidates (pool=${pool}) → ${outDir}`);
   console.log(`Estimated cost: $${(count * 0.02).toFixed(2)}\n`);
 
-  const candidates = await generateCandidates({ apiKey, count, outDir });
+  const candidates = await generateCandidates({ apiKey, count, outDir, pool });
 
   const totalCost = candidates.reduce((sum, c) => sum + c.costUsd, 0);
   console.log(`\nGenerated ${candidates.length} candidates for $${totalCost.toFixed(2)}.`);

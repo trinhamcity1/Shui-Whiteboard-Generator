@@ -49,9 +49,32 @@ const PROP_SUBJECTS: Array<{ label: string; description: string }> = [
   { label: "map", description: "a folded paper map" },
 ];
 
+/**
+ * Diagram-frame elements — the "boxes and arrows" kind of asset used to
+ * explain a structure or process. Two entries deliberately ask for text
+ * painted inside the box: the amendment doc already decided structured
+ * diagrams render through rough.js + real Remotion text specifically
+ * because AI models can't reliably spell words inside an image, and these
+ * two prompts exist to make that failure visible rather than assumed.
+ */
+const DIAGRAM_SUBJECTS: Array<{ label: string; description: string }> = [
+  { label: "empty box", description: "a single rounded rectangular box, empty, painted with a soft drop shadow" },
+  { label: "two boxes + arrow", description: "two rounded boxes side by side connected by a curved arrow pointing from the left box to the right box" },
+  { label: "three-box flowchart", description: "three rounded boxes in a row, each connected to the next by a short arrow" },
+  { label: "comparison boxes", description: "two rounded boxes side by side with a small circular \"vs\" divider shape between them" },
+  { label: "box with incoming arrow", description: "a rounded box with a bold arrow pointing into it from the left side" },
+  { label: "label banner", description: "a small ribbon-shaped banner or tag shape, empty, ready for a label" },
+  { label: "box with text: START", description: "a rounded box with the word \"START\" painted inside it in a hand-lettered style" },
+  { label: "box with text: YES", description: "a rounded box with the word \"YES\" painted inside it in a hand-lettered style" },
+];
+
 export interface CandidatePromptSpec {
   subject: string;
   prompt: string;
+}
+
+function toSpec(entry: { label: string; description: string }): CandidatePromptSpec {
+  return { subject: entry.label, prompt: `${STYLE_CLAUSE} Subject: ${entry.description}.` };
 }
 
 /**
@@ -66,10 +89,16 @@ export function buildCandidatePrompts(count: number): CandidatePromptSpec[] {
     const useCharacter = i % 5 < 3; // 3 of every 5 = characters, 2 = props
     const pool = useCharacter ? CHARACTER_SUBJECTS : PROP_SUBJECTS;
     const entry = pool[i % pool.length]!;
-    specs.push({
-      subject: entry.label,
-      prompt: `${STYLE_CLAUSE} Subject: ${entry.description}.`,
-    });
+    specs.push(toSpec(entry));
+  }
+  return specs;
+}
+
+/** A batch drawn entirely from the diagram-frame pool (boxes, arrows, labels). */
+export function buildDiagramCandidatePrompts(count: number): CandidatePromptSpec[] {
+  const specs: CandidatePromptSpec[] = [];
+  for (let i = 0; i < count; i++) {
+    specs.push(toSpec(DIAGRAM_SUBJECTS[i % DIAGRAM_SUBJECTS.length]!));
   }
   return specs;
 }

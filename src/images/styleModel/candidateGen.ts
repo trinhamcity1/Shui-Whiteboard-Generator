@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { buildCandidatePrompts } from "./candidatePrompts";
+import { buildCandidatePrompts, buildDiagramCandidatePrompts } from "./candidatePrompts";
 import type { StyleCandidate } from "./types";
 
 // Same published fal.ai Flux Schnell rate used by src/images/flux.ts.
@@ -16,14 +16,15 @@ export async function generateCandidates(args: {
   apiKey: string;
   count: number;
   outDir: string;
+  pool?: "default" | "diagram";
 }): Promise<StyleCandidate[]> {
-  const { apiKey, count, outDir } = args;
+  const { apiKey, count, outDir, pool = "default" } = args;
   if (!apiKey) {
     throw new Error("generateCandidates requires a fal.ai API key (FLUX_API_KEY).");
   }
   fs.mkdirSync(outDir, { recursive: true });
 
-  const specs = buildCandidatePrompts(count);
+  const specs = pool === "diagram" ? buildDiagramCandidatePrompts(count) : buildCandidatePrompts(count);
   const candidates: StyleCandidate[] = [];
 
   for (let i = 0; i < specs.length; i++) {
