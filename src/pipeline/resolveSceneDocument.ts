@@ -41,14 +41,30 @@ function isPreAuthored(request: SceneDocumentRequest): request is PreAuthoredReq
   return "scenes" in request;
 }
 
+function needsImageResolution(sceneDocument: SceneDocument): boolean {
+  return sceneDocument.actions.some((action) => {
+    if (action.imageConcept && !action.imageUrl) return true;
+    if (action.assetId && !action.imageUrl) return true;
+    const diagram = action.sketchDiagram;
+    if (diagram) {
+      if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) return true;
+      if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) return true;
+    }
+    return false;
+  });
+}
+
 async function resolveImagesIfNeeded(
   sceneDocument: SceneDocument,
   imageProvider: ImageProviderName | undefined,
 ): Promise<ImageResolutionResult | undefined> {
-  const hasConcepts = sceneDocument.actions.some((action) => action.imageConcept && !action.imageUrl);
-  if (!hasConcepts) return undefined;
+  if (!needsImageResolution(sceneDocument)) return undefined;
 
-  const provider = getImageProvider(imageProvider ?? defaultImageProviderName());
+  // getImageProvider throws if the API key for the *live* provider isn't
+  // configured — irrelevant when every pending action resolves via the
+  // $0 asset registry lookup and none need live generation.
+  const needsLiveProvider = sceneDocument.actions.some((action) => action.imageConcept && !action.imageUrl);
+  const provider = needsLiveProvider ? getImageProvider(imageProvider ?? defaultImageProviderName()) : undefined;
   return resolveImages(sceneDocument, { provider, orientation: sceneDocument.orientation });
 }
 

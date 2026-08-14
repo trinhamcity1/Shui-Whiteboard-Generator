@@ -21,7 +21,7 @@ const CONCURRENCY = 3;
  */
 export async function resolveImages(
   sceneDocument: SceneDocument,
-  opts: { provider: ImageProvider; orientation: "vertical" | "horizontal" },
+  opts: { provider?: ImageProvider; orientation: "vertical" | "horizontal" },
 ): Promise<ImageResolutionResult> {
   // Revision-2 Layer 1: assetId is a registry lookup — $0, no live API
   // call — and resolves first, since it's the default path for any
@@ -62,12 +62,16 @@ export async function resolveImages(
   let cacheHits = 0;
   let costUsd = 0;
 
+  if (pending.length > 0 && !opts.provider) {
+    throw new Error("resolveImages: pending imageConcept actions require an ImageProvider, but none was given.");
+  }
+
   for (let i = 0; i < pending.length; i += CONCURRENCY) {
     const batch = pending.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
       batch.map((action) =>
         resolveImage(action.imageConcept!, {
-          provider: opts.provider,
+          provider: opts.provider!,
           styleVariant: sceneDocument.styleVariant,
           orientation: opts.orientation,
         }).then((generated) => ({ action, generated })),
@@ -86,6 +90,6 @@ export async function resolveImages(
     imagesGenerated,
     cacheHits,
     costUsd,
-    provider: pending.length > 0 ? opts.provider.name : undefined,
+    provider: pending.length > 0 ? opts.provider!.name : undefined,
   };
 }

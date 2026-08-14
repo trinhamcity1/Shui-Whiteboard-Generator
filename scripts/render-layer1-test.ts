@@ -7,6 +7,8 @@ import { renderStill, selectComposition } from "@remotion/renderer";
 import { printJobCost } from "../src/cost/index";
 import { printTimingWarnings } from "../src/render/timing";
 import { renderSceneDocumentJob } from "../src/pipeline/renderJob";
+import { resolveImages } from "../src/images/resolveImages";
+import { parseSceneDocument } from "../src/schema/scene";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -28,12 +30,12 @@ const SCENE_DOCUMENT = {
   styleVariant: "classic-whiteboard",
   orientation: "vertical",
   actions: [
-    { id: "title", type: "titleCard", atSeconds: 0, durationSeconds: 4, text: "Hierarchy of Law" },
+    { id: "title", type: "titleCard", atSeconds: 0, durationSeconds: 3, text: "Hierarchy of Law" },
     {
       id: "diagram",
       type: "sketchDiagram",
-      atSeconds: 4,
-      durationSeconds: 16,
+      atSeconds: 3,
+      durationSeconds: 11.5,
       sketchDiagram: {
         title: "HIERARCHY OF LAW",
         topLabel: "CONSTITUTION",
@@ -50,8 +52,8 @@ const SCENE_DOCUMENT = {
     {
       id: "closing",
       type: "bulletList",
-      atSeconds: 20,
-      durationSeconds: 6,
+      atSeconds: 14.5,
+      durationSeconds: 4.7,
       items: ["Federal law: the whole country", "State law: one state", "Local law: a city or county"],
     },
   ],
@@ -84,26 +86,33 @@ async function main() {
 
   // A still frame from the diagram scene, for a direct side-by-side against
   // the Golpo reference frame, without needing ffmpeg to extract from the mp4.
+  // Resolve assetId/sketchDiagram references ourselves first — renderStill
+  // renders the composition as given, it doesn't run the pipeline's image
+  // resolution step, so a raw unresolved document would render with no
+  // characters (exactly the bug this fixed).
+  const resolvedDocument = parseSceneDocument(SCENE_DOCUMENT);
+  await resolveImages(resolvedDocument, { orientation: resolvedDocument.orientation });
+
   console.log("\nRendering comparison still (diagram scene)...");
   const bundleLocation = await bundle({ entryPoint: path.join(ROOT, "src/render/index.ts") });
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: "SceneRenderer",
     inputProps: {
-      sceneDocument: SCENE_DOCUMENT,
+      sceneDocument: resolvedDocument,
       audioFileName: "tts-audio.mp3",
-      totalDurationSeconds: 26,
+      totalDurationSeconds: 19.5,
     },
   });
   await renderStill({
     composition,
     serveUrl: bundleLocation,
     output: path.join(outputDir, "layer1-test-diagram-frame.png"),
-    frame: 12 * 30, // ~12s in, mid-diagram-scene, at 30fps
+    frame: Math.round(8.75 * 30), // mid-diagram-scene (3s-14.5s window), at 30fps
     inputProps: {
-      sceneDocument: SCENE_DOCUMENT,
+      sceneDocument: resolvedDocument,
       audioFileName: "tts-audio.mp3",
-      totalDurationSeconds: 26,
+      totalDurationSeconds: 19.5,
     },
   });
   console.log(`   still -> ${path.join(outputDir, "layer1-test-diagram-frame.png")}`);
