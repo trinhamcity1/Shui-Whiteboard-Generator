@@ -16,6 +16,7 @@ export interface RenderJobResult {
   timingWarnings: string[];
   uploadUrl?: string;
   uploadError?: string;
+  sceneDocumentDebug?: unknown;
 }
 
 /**
@@ -103,5 +104,6 @@ export async function renderSceneDocumentJob(args: {
     timingWarnings: timingResult.warnings,
     uploadUrl,
     uploadError,
+    sceneDocumentDebug: sceneDocument,
   };
 }

@@ -47,6 +47,12 @@ async function main() {
     inlineImagesForLocalDev: true,
   });
 
+  if (result.sceneDocumentDebug) {
+    const debugPath = path.join(outputDir, `${process.argv[2] === "--water-cycle" ? "water-cycle" : "fresh-topic"}-scenedoc.json`);
+    await fs.writeFile(debugPath, JSON.stringify(result.sceneDocumentDebug, null, 2));
+    console.log(`   sceneDocument -> ${debugPath}`);
+  }
+
   printTimingWarnings(result.timingWarnings);
   console.log(`   video -> ${result.outputLocation}`);
   if (result.uploadUrl) console.log(`   uploaded: ${result.uploadUrl}`);
