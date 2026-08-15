@@ -4,13 +4,14 @@ import { AbsoluteFill, Img, continueRender, delayRender } from "remotion";
 import { SKETCH_COLORS, SKETCH_LINE, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss, waitForSketchFont } from "../sketchStyle";
 
 /**
- * Proof-of-concept for the amendment §5 sketchDiagram action type — NOT yet
- * wired into the scene schema/pipeline. Built to answer one question before
- * committing engineering time to the full component: can rough.js shapes +
- * real text + our trained-style character illustrations actually composite
- * into something resembling the Golpo reference (a labeled pyramid with
- * characters beside it), the way the amendment claims. Only "pyramid" is
- * implemented — flowchart/comparison come later if this direction is approved.
+ * Started as a proof-of-concept for the amendment §5 sketchDiagram action
+ * type; now wired into the real schema/pipeline (revision-2 Layer 1).
+ * "pyramid" was the original, only-implemented shape. "flowchart" and
+ * "comparison" (revision-2 doc, Layer 1 schema) were added after a real
+ * test video (topic: the water cycle) showed the planner forcing a
+ * genuinely cyclical process into a pyramid — a shape that visually claims
+ * a ranking the content doesn't have. A pyramid still fits a real
+ * hierarchy; a sequence/process/cycle should use flowchart instead.
  *
  * Every color/line/font choice below comes from ../sketchStyle.ts, not a
  * local constant — that file is the one place to tune "does this look like
@@ -23,6 +24,7 @@ export interface PyramidTier {
 }
 
 export type SketchDiagramProps = {
+  diagramType?: "pyramid" | "flowchart" | "comparison";
   title: string;
   topLabel?: string;
   tiers: PyramidTier[];
@@ -32,11 +34,21 @@ export type SketchDiagramProps = {
 } & Record<string, unknown>;
 
 const CANVAS_WIDTH = 1000;
-const CANVAS_HEIGHT = 800;
+const PYRAMID_CANVAS_HEIGHT = 800;
 const PYRAMID_TOP_Y = 230;
 const TIER_HEIGHT = 100;
 const TOP_WIDTH = 260;
 const BOTTOM_WIDTH = 620;
+
+const FLOWCHART_BOX_WIDTH = 760;
+const FLOWCHART_BOX_HEIGHT = 130;
+const FLOWCHART_GAP = 70;
+const FLOWCHART_TOP_Y = 180;
+
+const COMPARISON_BOX_WIDTH = 420;
+const COMPARISON_BOX_HEIGHT = 420;
+const COMPARISON_TOP_Y = 220;
+const COMPARISON_CANVAS_HEIGHT = 800;
 
 /** A tapered ribbon-banner hexagon (pointed left/right ends), not a plain rectangle. */
 function ribbonPoints(x0: number, y0: number, x1: number, y1: number): [number, number][] {
@@ -67,7 +79,27 @@ function tierPolygon(index: number, total: number) {
   return { points, midY: (y0 + y1) / 2 };
 }
 
+function boxPoints(cx: number, cy: number, w: number, h: number): [number, number][] {
+  return [
+    [cx - w / 2, cy - h / 2],
+    [cx + w / 2, cy - h / 2],
+    [cx + w / 2, cy + h / 2],
+    [cx - w / 2, cy + h / 2],
+  ];
+}
+
+/** Long tier/step labels (a real problem seen in the water-cycle test — a
+ * full clause like "Evaporation: Sun heats ocean, water becomes vapor"
+ * overflowed a fixed 34px size) shrink to stay legible inside their box. */
+function fontSizeForLabel(label: string, base: number): number {
+  if (label.length > 60) return Math.round(base * 0.55);
+  if (label.length > 40) return Math.round(base * 0.7);
+  if (label.length > 25) return Math.round(base * 0.85);
+  return base;
+}
+
 export const SketchDiagram: React.FC<SketchDiagramProps> = ({
+  diagramType = "pyramid",
   title,
   topLabel,
   tiers,
@@ -79,14 +111,49 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   const [handle] = useState(() => delayRender("Loading font + drawing rough.js sketch diagram"));
 
   const tierLayout = useMemo(
-    () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length] }, ...tierPolygon(i, tiers.length) })),
+    () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! }, ...tierPolygon(i, tiers.length) })),
     [tiers],
   );
 
+  const flowSteps = useMemo(
+    () =>
+      tiers.map((tier, i) => {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = FLOWCHART_TOP_Y + i * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + FLOWCHART_BOX_HEIGHT / 2;
+        return {
+          tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! },
+          points: boxPoints(cx, cy, FLOWCHART_BOX_WIDTH, FLOWCHART_BOX_HEIGHT),
+          cx,
+          cy,
+        };
+      }),
+    [tiers],
+  );
+  const flowchartCanvasHeight =
+    FLOWCHART_TOP_Y + tiers.length * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + 120;
+
+  const comparisonBoxes = useMemo(() => {
+    const pair = tiers.slice(0, 2);
+    return pair.map((tier, i) => {
+      const cx = CANVAS_WIDTH / 2 + (i === 0 ? -1 : 1) * (COMPARISON_BOX_WIDTH / 2 + 40);
+      const cy = COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2;
+      return {
+        tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! },
+        points: boxPoints(cx, cy, COMPARISON_BOX_WIDTH, COMPARISON_BOX_HEIGHT),
+        cx,
+        cy,
+      };
+    });
+  }, [tiers]);
+
+  const canvasHeight =
+    diagramType === "flowchart" ? flowchartCanvasHeight : diagramType === "comparison" ? COMPARISON_CANVAS_HEIGHT : PYRAMID_CANVAS_HEIGHT;
+
   const pyramidStackHeight = tiers.length * TIER_HEIGHT;
   const pyramidBaseY = PYRAMID_TOP_Y + pyramidStackHeight;
-  const characterHeight = pyramidStackHeight * SKETCH_LAYOUT.characterToPyramidHeightRatio;
-  const characterTop = pyramidBaseY - characterHeight;
+  const anchorBaseY = diagramType === "pyramid" ? pyramidBaseY : diagramType === "flowchart" ? flowchartCanvasHeight - 120 : COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT;
+  const characterHeight = (diagramType === "pyramid" ? pyramidStackHeight : anchorBaseY - 150) * SKETCH_LAYOUT.characterToPyramidHeightRatio;
+  const characterTop = anchorBaseY - characterHeight;
 
   useEffect(() => {
     let cancelled = false;
@@ -100,95 +167,108 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       while (svg.firstChild) svg.removeChild(svg.firstChild);
       const rc = rough.svg(svg);
 
-      // Fixed seeds throughout — roughjs's "sketchy" wobble is randomized
-      // by default, and an unseeded shape would redraw slightly differently
-      // on every frame Remotion captures, producing a flickering diagram
-      // instead of a stable one.
-      tierLayout.forEach(({ tier, points }, i) => {
+      const drawBox = (points: [number, number][], color: string, seed: number) => {
         svg.appendChild(
           rc.polygon(points, {
-            fill: tier.color,
+            fill: color,
             fillStyle: SKETCH_LINE.fillStyle,
             roughness: SKETCH_LINE.roughness,
             bowing: SKETCH_LINE.bowing,
             stroke: SKETCH_COLORS.ink,
             strokeWidth: SKETCH_LINE.strokeWidth,
-            seed: 100 + i,
+            seed,
           }),
         );
-      });
+      };
+
+      const drawArrow = (x0: number, y0: number, x1: number, y1: number, seed: number) => {
+        svg.appendChild(
+          rc.curve(
+            [
+              [x0, y0],
+              [(x0 + x1) / 2, (y0 + y1) / 2],
+              [x1, y1],
+            ],
+            { stroke: SKETCH_COLORS.accentArrow, strokeWidth: 6, roughness: SKETCH_LINE.roughness, seed },
+          ),
+        );
+        const angle = Math.atan2(y1 - (y0 + y1) / 2, x1 - (x0 + x1) / 2);
+        const headLen = 20;
+        const headSpread = 0.5;
+        svg.appendChild(
+          rc.polygon(
+            [
+              [x1, y1],
+              [x1 - headLen * Math.cos(angle - headSpread), y1 - headLen * Math.sin(angle - headSpread)],
+              [x1 - headLen * Math.cos(angle + headSpread), y1 - headLen * Math.sin(angle + headSpread)],
+            ],
+            { fill: SKETCH_COLORS.accentArrow, fillStyle: SKETCH_LINE.fillStyle, stroke: SKETCH_COLORS.accentArrow, strokeWidth: 1, roughness: 1.5, seed: seed + 1 },
+          ),
+        );
+      };
+
+      if (diagramType === "flowchart") {
+        flowSteps.forEach(({ tier, points, cx: bx }, i) => {
+          drawBox(points, tier.color, 100 + i);
+          if (i < flowSteps.length - 1) {
+            const next = flowSteps[i + 1]!;
+            drawArrow(bx, points[2]![1], next.cx, next.points[0]![1], 500 + i);
+          }
+        });
+        // A curved return arrow from the last step back to the first —
+        // makes an explicitly cyclical process (the common reason this
+        // shape got added) read as a loop, not a dead-ended list.
+        if (flowSteps.length > 1) {
+          const first = flowSteps[0]!;
+          const last = flowSteps[flowSteps.length - 1]!;
+          const returnX = CANVAS_WIDTH - 60;
+          svg.appendChild(
+            rc.curve(
+              [
+                [last.cx + FLOWCHART_BOX_WIDTH / 2, last.cy],
+                [returnX, last.cy],
+                [returnX, first.cy],
+                [first.cx + FLOWCHART_BOX_WIDTH / 2, first.cy],
+              ],
+              { stroke: SKETCH_COLORS.accentArrow, strokeWidth: 5, roughness: SKETCH_LINE.roughness, seed: 900 },
+            ),
+          );
+        }
+      } else if (diagramType === "comparison") {
+        comparisonBoxes.forEach(({ tier, points }, i) => drawBox(points, tier.color, 100 + i));
+      } else {
+        tierLayout.forEach(({ tier, points }, i) => drawBox(points, tier.color, 100 + i));
+      }
 
       if (topLabel) {
         const cx = CANVAS_WIDTH / 2;
-        const points = ribbonPoints(cx - 150, PYRAMID_TOP_Y - 150, cx + 150, PYRAMID_TOP_Y - 50);
-        svg.appendChild(
-          rc.polygon(points, {
-            fill: SKETCH_COLORS.panelFill,
-            fillStyle: SKETCH_LINE.fillStyle,
-            roughness: SKETCH_LINE.roughness,
-            bowing: SKETCH_LINE.bowing,
-            stroke: SKETCH_COLORS.ink,
-            strokeWidth: SKETCH_LINE.strokeWidth,
-            seed: 999,
-          }),
-        );
+        const labelTopY = diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : 60;
+        const points = ribbonPoints(cx - 150, labelTopY, cx + 150, labelTopY + 100);
+        drawBox(points, SKETCH_COLORS.panelFill, 999);
       }
 
       if (bottomBanner) {
         const cx = CANVAS_WIDTH / 2;
-        const bannerY = pyramidBaseY + 30;
+        const bannerY = anchorBaseY + 30;
         const points = ribbonPoints(cx - 320, bannerY, cx + 320, bannerY + 70);
-        svg.appendChild(
-          rc.polygon(points, {
-            fill: SKETCH_COLORS.panelFill,
-            fillStyle: SKETCH_LINE.fillStyle,
-            roughness: SKETCH_LINE.roughness,
-            bowing: SKETCH_LINE.bowing,
-            stroke: SKETCH_COLORS.ink,
-            strokeWidth: SKETCH_LINE.strokeWidth,
-            seed: 1000,
-          }),
-        );
+        drawBox(points, SKETCH_COLORS.panelFill, 1000);
       }
 
-      // A sketchy connecting arrow from the pyramid to the right-hand
-      // character — the same visual device Golpo uses to link a diagram to
-      // the people it's explaining. Drawn as a curved rough.js line with a
-      // solid triangular arrowhead, not a straight/geometric line.
-      const arrowStartX = CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 + 10;
-      const arrowStartY = PYRAMID_TOP_Y + TIER_HEIGHT;
-      const arrowEndX = arrowStartX + 90;
-      const arrowEndY = arrowStartY + 110;
-      svg.appendChild(
-        rc.curve(
-          [
-            [arrowStartX, arrowStartY],
-            [arrowStartX + 50, arrowStartY + 40],
-            [arrowEndX, arrowEndY],
-          ],
-          { stroke: SKETCH_COLORS.accentArrow, strokeWidth: 6, roughness: SKETCH_LINE.roughness, seed: 1100 },
-        ),
-      );
-      const angle = Math.atan2(arrowEndY - (arrowStartY + 40), arrowEndX - (arrowStartX + 50));
-      const headLen = 22;
-      const headSpread = 0.5;
-      svg.appendChild(
-        rc.polygon(
-          [
-            [arrowEndX, arrowEndY],
-            [arrowEndX - headLen * Math.cos(angle - headSpread), arrowEndY - headLen * Math.sin(angle - headSpread)],
-            [arrowEndX - headLen * Math.cos(angle + headSpread), arrowEndY - headLen * Math.sin(angle + headSpread)],
-          ],
-          {
-            fill: SKETCH_COLORS.accentArrow,
-            fillStyle: SKETCH_LINE.fillStyle,
-            stroke: SKETCH_COLORS.accentArrow,
-            strokeWidth: 1,
-            roughness: 1.5,
-            seed: 1101,
-          },
-        ),
-      );
+      if (diagramType === "comparison" && comparisonBoxes.length === 2) {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2;
+        drawBox(ribbonPoints(cx - 60, cy - 35, cx + 60, cy + 35), SKETCH_COLORS.panelFill, 1050);
+      }
+
+      // Pyramid keeps its original connecting arrow to the right-hand
+      // character — unchanged from the first-approved prototype.
+      if (diagramType === "pyramid") {
+        const arrowStartX = CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 + 10;
+        const arrowStartY = PYRAMID_TOP_Y + TIER_HEIGHT;
+        const arrowEndX = arrowStartX + 90;
+        const arrowEndY = arrowStartY + 110;
+        drawArrow(arrowStartX, arrowStartY, arrowEndX, arrowEndY, 1100);
+      }
 
       continueRender(handle);
     })();
@@ -196,9 +276,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [handle, tierLayout, topLabel, bottomBanner, pyramidBaseY]);
-
-  const bannerY = pyramidBaseY + 30;
+  }, [handle, diagramType, tierLayout, flowSteps, comparisonBoxes, topLabel, bottomBanner, anchorBaseY]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -219,16 +297,16 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         {title}
       </div>
 
-      <svg ref={svgRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} style={{ position: "absolute", left: 0, top: 0 }} />
+      <svg ref={svgRef} width={CANVAS_WIDTH} height={canvasHeight} style={{ position: "absolute", left: 0, top: 0 }} />
 
       {topLabel && (
         <div
           style={{
             position: "absolute",
             left: CANVAS_WIDTH / 2 - 150,
-            top: PYRAMID_TOP_Y - 150,
+            top: (diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : 60) + 10,
             width: 300,
-            height: 100,
+            height: 80,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -242,23 +320,87 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         </div>
       )}
 
-      {tierLayout.map(({ tier, midY }) => (
+      {diagramType === "flowchart" &&
+        flowSteps.map(({ tier, cy }) => (
+          <div
+            key={tier.label}
+            style={{
+              position: "absolute",
+              left: CANVAS_WIDTH / 2 - FLOWCHART_BOX_WIDTH / 2 + 30,
+              width: FLOWCHART_BOX_WIDTH - 60,
+              top: cy - fontSizeForLabel(tier.label, 34) * 0.8,
+              textAlign: "center",
+              fontFamily: SKETCH_FONT_FAMILY,
+              fontSize: fontSizeForLabel(tier.label, 34),
+              lineHeight: 1.25,
+              color: SKETCH_COLORS.ink,
+            }}
+          >
+            {tier.label}
+          </div>
+        ))}
+
+      {diagramType === "comparison" &&
+        comparisonBoxes.map(({ tier, cx, cy }) => (
+          <div
+            key={tier.label}
+            style={{
+              position: "absolute",
+              left: cx - COMPARISON_BOX_WIDTH / 2 + 40,
+              width: COMPARISON_BOX_WIDTH - 80,
+              top: cy - fontSizeForLabel(tier.label, 28) * 0.8,
+              textAlign: "center",
+              fontFamily: SKETCH_FONT_FAMILY,
+              fontSize: fontSizeForLabel(tier.label, 28),
+              lineHeight: 1.3,
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+              color: SKETCH_COLORS.ink,
+            }}
+          >
+            {tier.label}
+          </div>
+        ))}
+
+      {diagramType === "comparison" && comparisonBoxes.length === 2 && (
         <div
-          key={tier.label}
           style={{
             position: "absolute",
-            left: 0,
-            right: 0,
-            top: midY - 22,
-            textAlign: "center",
+            left: CANVAS_WIDTH / 2 - 60,
+            top: COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2 - 24,
+            width: 120,
+            height: 48,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             fontFamily: SKETCH_FONT_FAMILY,
-            fontSize: 34,
+            fontSize: 30,
             color: SKETCH_COLORS.ink,
           }}
         >
-          {tier.label}
+          VS
         </div>
-      ))}
+      )}
+
+      {diagramType === "pyramid" &&
+        tierLayout.map(({ tier, midY }) => (
+          <div
+            key={tier.label}
+            style={{
+              position: "absolute",
+              left: CANVAS_WIDTH / 2 - BOTTOM_WIDTH / 2 + 40,
+              width: BOTTOM_WIDTH - 80,
+              top: midY - fontSizeForLabel(tier.label, 34) * 0.65,
+              textAlign: "center",
+              fontFamily: SKETCH_FONT_FAMILY,
+              fontSize: fontSizeForLabel(tier.label, 34),
+              lineHeight: 1.2,
+              color: SKETCH_COLORS.ink,
+            }}
+          >
+            {tier.label}
+          </div>
+        ))}
 
       {bottomBanner && (
         <div
@@ -266,7 +408,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
             position: "absolute",
             left: 0,
             right: 0,
-            top: bannerY + 22,
+            top: anchorBaseY + 30 + 22,
             textAlign: "center",
             fontFamily: SKETCH_FONT_FAMILY,
             fontSize: 28,
@@ -283,7 +425,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           style={{ position: "absolute", left: 20, top: characterTop, height: characterHeight, width: "auto" }}
         />
       )}
-      {rightCharacterSrc && (
+      {rightCharacterSrc && diagramType === "pyramid" && (
         <Img
           src={rightCharacterSrc}
           style={{ position: "absolute", right: 20, top: characterTop, height: characterHeight, width: "auto" }}

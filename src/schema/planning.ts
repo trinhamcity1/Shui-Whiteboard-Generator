@@ -71,16 +71,26 @@ Rules:
     back to "imageConcept" (a short, concrete description of exactly what should be drawn) for something
     genuinely not in the library. NEVER set "imageUrl" yourself — you have no real images, only descriptions
     and asset ids.
-  - sketchDiagram: "sketchDiagram" object — {"title": string, "tiers": [{"label": string}, ...],
-    "topLabel"?: string, "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}.
-    Use this for a structured multi-part hierarchy or process the script actually describes (e.g. "federal,
-    state, and local government" — a real pyramid, not a metaphor). Tier labels are drawn as real text, always
-    correctly spelled — never ask for a diagram with words baked into an imageConcept/assetId illustration.
-    leftCharacterAssetId/rightCharacterAssetId — ALWAYS set these when the library has a character
-    relevant to the diagram's subject (check the library below first). A diagram about courts or law
-    enforcement with a judge or officer available in the library and NOT placed beside it is a mistake,
-    not a valid minimal choice — an empty diagram is a worse video than one with its relevant characters
-    present.
+  - sketchDiagram: "sketchDiagram" object — {"diagramType": "pyramid" | "flowchart" | "comparison",
+    "title": string, "tiers": [{"label": string}, ...], "topLabel"?: string, "bottomBanner"?: string,
+    "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}. Tier labels are drawn as real
+    text, always correctly spelled — never ask for a diagram with words baked into an
+    imageConcept/assetId illustration. Keep each tier/step label SHORT (a few words, not a full clause
+    with its own explanation) — it has to fit inside a drawn shape, not read like a sentence.
+    - "pyramid": a real hierarchy or ranking only — e.g. "federal, state, and local government" (each
+      tier is genuinely subordinate to the one above it). Do NOT use pyramid for a sequence, process, or
+      cycle — that visually claims a ranking the content doesn't have.
+    - "flowchart": a sequence, process, or cycle — steps happen in order (e.g. "evaporation →
+      condensation → precipitation → collection"). Tiers become connected boxes in order; if the process
+      described in the script actually loops back to its start, flowchart draws that loop automatically
+      — pick flowchart for anything cyclical, never pyramid.
+    - "comparison": exactly two tiers, side by side — for "X vs Y" content.
+    leftCharacterAssetId/rightCharacterAssetId — ALWAYS set leftCharacterAssetId (and
+    rightCharacterAssetId for a "pyramid" diagram specifically — flowchart/comparison only render the
+    left character) when the library has a character relevant to the diagram's subject (check the
+    library below first). A diagram about courts or law enforcement with a judge or officer available in
+    the library and NOT placed beside it is a mistake, not a valid minimal choice — an empty diagram is a
+    worse video than one with its relevant characters present.
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
   concrete and drawable — an object, a place, a process. Use "documentReveal" when the script references an
   actual document, artifact, or figure worth showing prominently. Use "sketchDiagram" specifically when the

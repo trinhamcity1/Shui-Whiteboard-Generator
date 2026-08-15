@@ -36,6 +36,7 @@ function ActionRenderer({ action }: { action: SceneAction }) {
       if (!diagram) return null;
       return (
         <SketchDiagram
+          diagramType={diagram.diagramType}
           title={diagram.title}
           topLabel={diagram.topLabel}
           tiers={diagram.tiers}

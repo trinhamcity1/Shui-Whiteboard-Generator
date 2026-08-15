@@ -33,6 +33,13 @@ export const PyramidTierSchema = z.object({
 
 export const SketchDiagramSpec = z.object({
   title: z.string(),
+  // "pyramid" — ranked/hierarchical tiers (unchanged, the original shape).
+  // "flowchart" — a top-to-bottom sequence of connected steps, for a
+  // process or cycle (the tiers ARE the steps, in order) — never force a
+  // process into a pyramid just because pyramid was the only shape
+  // available; a pyramid visually claims a ranking that a sequence doesn't
+  // have. "comparison" — two boxes side by side (uses the first two tiers).
+  diagramType: z.enum(["pyramid", "flowchart", "comparison"]).default("pyramid"),
   topLabel: z.string().optional(),
   tiers: z.array(PyramidTierSchema).min(1),
   bottomBanner: z.string().optional(),
