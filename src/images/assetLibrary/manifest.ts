@@ -1,5 +1,12 @@
 import type { AssetManifestEntry } from "./types";
 
+/** Plain-language description of a manifest entry — used both for the
+ * planner's asset catalog and for Layer 2's semantic near-match search. */
+export function describeManifestEntry(entry: AssetManifestEntry): string {
+  if (entry.role === "character") return `${entry.pose} (${entry.attire})`;
+  return entry.description ?? entry.id;
+}
+
 // The v1 library manifest — matches the amendment doc's §1/§2 asset tables.
 // Three entries are flagged isTest: true (one Tier-1 character, one Tier-1
 // prop, one Tier-2 character) — generate and review these against the

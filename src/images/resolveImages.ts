@@ -2,6 +2,8 @@ import type { SceneDocument } from "../schema/scene";
 import type { ImageProvider, ImageProviderName } from "./types";
 import { resolveImage } from "./cache";
 import { resolveAssetId } from "./assetLibrary/registryLookup";
+import { resolveConceptViaLibrary } from "./assetLibrary/autoExpand";
+import { TrainedStyleImageProvider } from "./trainedStyle";
 
 export interface ImageResolutionResult {
   imagesGenerated: number; // cache misses — real generations
@@ -66,20 +68,48 @@ export async function resolveImages(
     throw new Error("resolveImages: pending imageConcept actions require an ImageProvider, but none was given.");
   }
 
+  // Layer 2: an imageConcept resolved through the trained-style provider
+  // runs the real self-expanding-library flow (semantic near-match reuse,
+  // then generate-and-quarantine on a genuine miss) instead of the plain
+  // exact-hash cache — that's what actually grows the asset library over
+  // time. Any other provider (recraft/flux, used only by direct
+  // provider-comparison scripts, never the real pipeline default) keeps
+  // the simple cache-only path.
+  const useLibraryExpansion = opts.provider instanceof TrainedStyleImageProvider;
+
   for (let i = 0; i < pending.length; i += CONCURRENCY) {
     const batch = pending.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
-      batch.map((action) =>
-        resolveImage(action.imageConcept!, {
+      batch.map(async (action) => {
+        if (useLibraryExpansion) {
+          const trainedProvider = opts.provider as TrainedStyleImageProvider;
+          const expanded = await resolveConceptViaLibrary(action.imageConcept!, {
+            falApiKey: trainedProvider.apiKey,
+            anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+            styleModel: trainedProvider.styleModel,
+          });
+          return {
+            action,
+            generated: {
+              imageUrl: expanded.imageUrl,
+              cacheHit: expanded.reused,
+              costUsd: expanded.costUsd,
+              assetId: expanded.assetId,
+            },
+          };
+        }
+        const generated = await resolveImage(action.imageConcept!, {
           provider: opts.provider!,
           styleVariant: sceneDocument.styleVariant,
           orientation: opts.orientation,
-        }).then((generated) => ({ action, generated })),
-      ),
+        });
+        return { action, generated };
+      }),
     );
 
     for (const { action, generated } of results) {
       action.imageUrl = generated.imageUrl;
+      if ("assetId" in generated) action.assetId = generated.assetId;
       if (generated.cacheHit) cacheHits++;
       else imagesGenerated++;
       costUsd += generated.costUsd;

@@ -3,6 +3,18 @@ import type { ImageProviderName } from "../types";
 export type AssetTier = "shared" | "civics";
 export type AssetRole = "character" | "prop";
 
+/** Where an asset came from — hand-curated v1 manifest vs. Layer 2 live expansion. */
+export type AssetOrigin = "v1-manifest" | "auto-expanded";
+
+/** Layer 2 gate: an auto-expanded asset serves its own video immediately but only
+ * enters the shared, reusable registry once the automated check passes. */
+export type QuarantineStatus = "pending" | "promoted";
+
+export interface LabelAnchor {
+  xFraction: number; // 0-1 across the asset's own cropped width
+  yFraction: number; // 0-1 down the asset's own cropped height
+}
+
 /** Persisted record — matches the amendment doc's LibraryAsset interface (§4). */
 export interface LibraryAsset {
   id: string;
@@ -15,6 +27,12 @@ export interface LibraryAsset {
   heightPx: number;
   costUsd: number;
   generatedAt: string;
+  /** Plain description used for Layer 2 semantic near-match search. */
+  description: string;
+  origin: AssetOrigin;
+  quarantineStatus: QuarantineStatus;
+  labelAnchor?: LabelAnchor;
+  dominantColor?: string;
 }
 
 /** One row of the generation manifest — the input to scripts/generate-asset-library.ts. */

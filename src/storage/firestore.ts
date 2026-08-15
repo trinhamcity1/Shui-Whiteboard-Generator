@@ -162,6 +162,11 @@ export interface LibraryAssetRecord {
   heightPx: number;
   costUsd: number;
   generatedAt: string;
+  description: string;
+  origin: "v1-manifest" | "auto-expanded";
+  quarantineStatus: "pending" | "promoted";
+  labelAnchor?: { xFraction: number; yFraction: number };
+  dominantColor?: string;
 }
 
 export async function getLibraryAsset(id: string): Promise<LibraryAssetRecord | null> {

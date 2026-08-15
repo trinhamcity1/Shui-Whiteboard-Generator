@@ -19,9 +19,13 @@ const COST_PER_IMAGE_USD = 0.03;
 export class TrainedStyleImageProvider implements ImageProvider {
   readonly name = "trained-style" as const;
 
+  // Public so Layer 2's autoExpand flow (src/images/assetLibrary/autoExpand.ts)
+  // can reuse this exact key/model pair instead of re-deriving them —
+  // it needs to call fal.ai directly with the same trained LoRA, not just
+  // through this class's generate() method.
   constructor(
-    private readonly apiKey: string,
-    private readonly styleModel: StyleModelVersion,
+    readonly apiKey: string,
+    readonly styleModel: StyleModelVersion,
   ) {
     if (!apiKey) throw new Error("TrainedStyleImageProvider requires a fal.ai API key.");
   }

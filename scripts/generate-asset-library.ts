@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { ASSET_MANIFEST } from "../src/images/assetLibrary/manifest";
+import { ASSET_MANIFEST, describeManifestEntry } from "../src/images/assetLibrary/manifest";
 import { generateLibraryAsset } from "../src/images/assetLibrary/generateAsset";
 import type { AssetManifestEntry } from "../src/images/assetLibrary/types";
 import { uploadBufferToR2 } from "../src/storage/r2";
@@ -29,6 +29,9 @@ async function generateOne(entry: AssetManifestEntry, keys: { recraftApiKey: str
     heightPx: raw.heightPx,
     costUsd: raw.costUsd,
     generatedAt: new Date().toISOString(),
+    description: describeManifestEntry(entry),
+    origin: "v1-manifest",
+    quarantineStatus: "promoted",
   });
 
   return { url, costUsd: raw.costUsd };

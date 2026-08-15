@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { SceneAction, type SceneAction as SceneActionT } from "./scene";
 import { AVAILABLE_ICON_NAMES } from "../render/icons/registry";
-import { ASSET_MANIFEST } from "../images/assetLibrary/manifest";
+import { ASSET_MANIFEST, describeManifestEntry } from "../images/assetLibrary/manifest";
 
 export interface ScenePlanningResult {
   actions: SceneActionT[];
@@ -45,8 +45,7 @@ const PlannedActionsSchema = z.array(SceneAction).min(1);
 // assetId without needing to see the actual generated image.
 function buildAssetCatalog(): string {
   return ASSET_MANIFEST.map((entry) => {
-    const summary = entry.role === "character" ? `${entry.pose} (${entry.attire})` : entry.description;
-    return `  - "${entry.id}" [${entry.tier}/${entry.role}]: ${summary}`;
+    return `  - "${entry.id}" [${entry.tier}/${entry.role}]: ${describeManifestEntry(entry)}`;
   }).join("\n");
 }
 

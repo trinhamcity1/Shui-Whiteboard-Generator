@@ -2,7 +2,7 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { fal } from "@fal-ai/client";
-import { ASSET_MANIFEST } from "../src/images/assetLibrary/manifest";
+import { ASSET_MANIFEST, describeManifestEntry } from "../src/images/assetLibrary/manifest";
 import { buildLibraryPrompt } from "../src/images/styleModel/libraryPrompt";
 import { removeFlatBackground } from "../src/images/styleModel/removeBackground";
 import { uploadBufferToR2 } from "../src/storage/r2";
@@ -30,6 +30,9 @@ interface RegistryEntry {
   styleModelVersion: string;
   generatedAt: string;
   localPath: string;
+  description: string;
+  origin: "v1-manifest";
+  quarantineStatus: "promoted";
 }
 
 async function main() {
@@ -95,6 +98,9 @@ async function main() {
       styleModelVersion: styleModel.version,
       generatedAt: new Date().toISOString(),
       localPath: finalPath,
+      description: describeManifestEntry(entry),
+      origin: "v1-manifest",
+      quarantineStatus: "promoted",
     });
     totalCost += COST_PER_IMAGE_USD;
     console.log("done");
