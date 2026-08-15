@@ -77,8 +77,11 @@ Rules:
     Use this for a structured multi-part hierarchy or process the script actually describes (e.g. "federal,
     state, and local government" — a real pyramid, not a metaphor). Tier labels are drawn as real text, always
     correctly spelled — never ask for a diagram with words baked into an imageConcept/assetId illustration.
-    leftCharacterAssetId/rightCharacterAssetId are optional — use them only when a character from the
-    library naturally belongs beside the diagram (e.g. a judge beside a courts-related pyramid).
+    leftCharacterAssetId/rightCharacterAssetId — ALWAYS set these when the library has a character
+    relevant to the diagram's subject (check the library below first). A diagram about courts or law
+    enforcement with a judge or officer available in the library and NOT placed beside it is a mistake,
+    not a valid minimal choice — an empty diagram is a worse video than one with its relevant characters
+    present.
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
   concrete and drawable — an object, a place, a process. Use "documentReveal" when the script references an
   actual document, artifact, or figure worth showing prominently. Use "sketchDiagram" specifically when the
@@ -88,6 +91,21 @@ Rules:
   its point through bulletList/iconCallout/timeline — reserve visuals for the moments that most benefit from
   one. If nothing in the script is concretely drawable (e.g. an abstract argument), it is correct to use zero
   and rely on the typographic components alone.
+- NEVER make the same point twice in two different scenes. Before adding a scene, check whether an earlier
+  scene already covers that fact — if a sketchDiagram tier already shows "Constitution," a separate
+  iconCallout/bulletList scene restating "the Constitution is the foundation of law" is a redundant scene,
+  not two reinforcing ones. Cut it. Every scene must add new information the previous scenes didn't.
+- Every sentence or clause in the narration script needs a scene whose ON-SCREEN CONTENT actually matches
+  it — not just a scene that happens to be playing at that timestamp. If the script's last sentence is
+  about a judge and an officer, the scene covering that timestamp must show the judge and/or officer (via
+  assetId or a sketchDiagram character), not an unrelated bullet list. Read the whole script first, map
+  every distinct claim to one scene each, THEN assign timestamps — don't assign timestamps first and
+  backfill content.
+- Budget total scene time to land at or slightly under the narration's estimated length
+  (${estimatedDurationSeconds.toFixed(1)}s), never over it. Sum every action's durationSeconds before
+  finalizing and trim the least essential scene if the total exceeds the estimate — a video that ends
+  with dead scene time after the narration stops, or a scene still running after the narration ends, is
+  a failed plan.
 
 Asset library (use "assetId" with one of these exact ids when it fits — do not invent an id that isn't listed):
 ${buildAssetCatalog()}

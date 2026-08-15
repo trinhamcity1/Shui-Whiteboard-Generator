@@ -28,7 +28,7 @@ export interface JobCost {
   imagesGenerated?: number;
   imageCacheHits?: number;
   imageGenerationCostUsd?: number;
-  imageProvider?: "recraft" | "flux";
+  imageProvider?: "recraft" | "flux" | "trained-style";
   renderWallClockSeconds: number;
   renderComputeCostUsd: number;
   totalCostUsd: number;
@@ -43,7 +43,7 @@ export function buildJobCost(args: {
   imagesGenerated?: number;
   imageCacheHits?: number;
   imageGenerationCostUsd?: number;
-  imageProvider?: "recraft" | "flux";
+  imageProvider?: "recraft" | "flux" | "trained-style";
 }): JobCost {
   const { renderComputeCostUsd } = estimateRenderComputeCost(args.renderWallClockSeconds);
   const scenePlanningCostUsd = args.scenePlanningCostUsd ?? 0;

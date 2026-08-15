@@ -27,7 +27,7 @@ export const ScriptOnlyRequestSchema = z
     styleVariant: z.string().min(1),
     orientation: z.enum(["vertical", "horizontal"]).optional(),
     backgroundTrack: z.string().optional(),
-    imageProvider: z.enum(["recraft", "flux"]).optional(),
+    imageProvider: z.enum(["recraft", "flux", "trained-style"]).optional(),
   })
   .strict();
 

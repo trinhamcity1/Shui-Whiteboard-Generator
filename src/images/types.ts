@@ -1,4 +1,4 @@
-export type ImageProviderName = "recraft" | "flux";
+export type ImageProviderName = "recraft" | "flux" | "trained-style";
 
 /** What a provider's raw API call returns, before caching/upload. */
 export interface RawGeneratedImage {

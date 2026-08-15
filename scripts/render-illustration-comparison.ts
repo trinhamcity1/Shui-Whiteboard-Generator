@@ -77,7 +77,7 @@ async function main() {
   if (!process.env.RECRAFT_API_KEY) throw new Error("RECRAFT_API_KEY is not set. Fill it in .env.");
   if (!process.env.FLUX_API_KEY) throw new Error("FLUX_API_KEY is not set. Fill it in .env.");
 
-  const results: Record<ImageProviderName, JobCost> = {
+  const results: Record<"recraft" | "flux", JobCost> = {
     recraft: await runProvider("recraft"),
     flux: await runProvider("flux"),
   };
