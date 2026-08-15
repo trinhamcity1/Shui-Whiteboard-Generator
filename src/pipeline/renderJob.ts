@@ -7,6 +7,7 @@ import { buildJobCost, type JobCost } from "../cost/index";
 import { checkSceneTiming } from "../render/timing";
 import { uploadRenderToR2 } from "../storage/r2";
 import { resolveSceneDocument, type SceneDocumentRequest } from "./resolveSceneDocument";
+import { inlineRemoteImagesForLocalDev } from "./localDevInlining";
 import type { SceneInputProps } from "../render/Root";
 
 export interface RenderJobResult {
@@ -33,8 +34,14 @@ export async function renderSceneDocumentJob(args: {
   outputLocation: string;
   uploadKey: string;
   audioFileName?: string;
+  /** See localDevInlining.ts — opt-in workaround for this sandbox only, never set in production. */
+  inlineImagesForLocalDev?: boolean;
 }): Promise<RenderJobResult> {
   const { sceneDocument, scenePlanning, imageResolution } = await resolveSceneDocument(args.request);
+
+  if (args.inlineImagesForLocalDev) {
+    await inlineRemoteImagesForLocalDev(sceneDocument);
+  }
 
   const tts = new ElevenLabsTTSProvider(args.apiKey);
   const ttsResult = await tts.synthesize(sceneDocument.narrationScript, { voice: sceneDocument.voice });
