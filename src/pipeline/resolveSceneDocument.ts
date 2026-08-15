@@ -50,6 +50,12 @@ function needsImageResolution(sceneDocument: SceneDocument): boolean {
       if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) return true;
       if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) return true;
     }
+    const composition = action.composition;
+    if (composition) {
+      return Object.values(composition.slots).some(
+        (slot) => (slot.assetId || slot.imageConcept) && !slot.imageUrl,
+      );
+    }
     return false;
   });
 }
@@ -63,7 +69,11 @@ async function resolveImagesIfNeeded(
   // getImageProvider throws if the API key for the *live* provider isn't
   // configured — irrelevant when every pending action resolves via the
   // $0 asset registry lookup and none need live generation.
-  const needsLiveProvider = sceneDocument.actions.some((action) => action.imageConcept && !action.imageUrl);
+  const needsLiveProvider = sceneDocument.actions.some(
+    (action) =>
+      (action.imageConcept && !action.imageUrl) ||
+      (action.composition && Object.values(action.composition.slots).some((slot) => slot.imageConcept && !slot.imageUrl)),
+  );
   const provider = needsLiveProvider ? getImageProvider(imageProvider ?? defaultImageProviderName()) : undefined;
   return resolveImages(sceneDocument, { provider, orientation: sceneDocument.orientation });
 }

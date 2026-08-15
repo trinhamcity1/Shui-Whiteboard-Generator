@@ -37,6 +37,7 @@ const PLANNABLE_ACTION_TYPES = [
   "documentReveal",
   "fullBleedGraphic",
   "sketchDiagram",
+  "composition",
 ] as const;
 
 const PlannedActionsSchema = z.array(SceneAction).min(1);
@@ -91,6 +92,30 @@ Rules:
     library below first). A diagram about courts or law enforcement with a judge or officer available in
     the library and NOT placed beside it is a mistake, not a valid minimal choice — an empty diagram is a
     worse video than one with its relevant characters present.
+  - composition: "composition" object — {"templateId": one of the four below, "title"?: string,
+    "slots": {"<slotName>": {"assetId"?: string, "imageConcept"?: string, "label"?: string,
+    "revealAtSeconds"?: number}}}. A template is a fixed, pre-designed layout — you select a templateId
+    and fill its declared slots, you never invent your own layout or slot names. revealAtSeconds is an
+    OFFSET from this scene's own start (not absolute video time) — set it on a later slot (e.g. 1.5,
+    2.5) so that slot appears only once the narration has moved on to describing it, instead of every
+    slot appearing at once on frame one.
+    - "hero-backdrop" slots: backdrop (assetId/imageConcept — a scene-setting illustration), character
+      (assetId — a person relevant to the scene), caption (label — a short callout line). Use for one
+      strong establishing/closing visual with a character reacting to it.
+    - "pyramid-flanked" slots: tier1, tier2, tier3, ... (label each — SHORT phrases, this is the same
+      shape as a "pyramid" sketchDiagram), leftCharacter/rightCharacter (assetId). This is really just
+      an alternate way to build a flanked pyramid — prefer the plain "sketchDiagram" action type for that
+      instead, since it's simpler; only reach for this templateId if you specifically need it inside a
+      bigger multi-slot composition.
+    - "storyboard-4panel" slots: panel1, panel2, panel3, panel4 (assetId/imageConcept + label each, 2-4
+      of them, not all 4 required). Use for a multi-step story or example that isn't a clean
+      process/cycle (use sketchDiagram flowchart for an actual process instead) — e.g. illustrating three
+      different everyday examples of the same idea.
+    - "comparison-2box" slots: left, right (assetId/imageConcept + label each). Use for "X vs Y" when
+      each side needs an actual illustration, not just text — the existing "comparisonCards" action
+      stays the right choice when text alone is enough.
+    Use composition SPARINGLY, same discipline as sketchDiagram/illustrations generally — most scenes
+    should still be plain typographic components.
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
   concrete and drawable — an object, a place, a process. Use "documentReveal" when the script references an
   actual document, artifact, or figure worth showing prominently. Use "sketchDiagram" specifically when the

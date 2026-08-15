@@ -36,5 +36,14 @@ export async function inlineRemoteImagesForLocalDev(sceneDocument: SceneDocument
         diagram.rightCharacterUrl = await toDataUri(diagram.rightCharacterUrl);
       }
     }
+
+    const composition = action.composition;
+    if (composition) {
+      for (const slot of Object.values(composition.slots)) {
+        if (slot.imageUrl?.startsWith("https://")) {
+          slot.imageUrl = await toDataUri(slot.imageUrl);
+        }
+      }
+    }
   }
 }

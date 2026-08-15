@@ -10,6 +10,7 @@ export const SceneActionType = z.enum([
   "quote",
   "fullBleedGraphic",
   "sketchDiagram",
+  "composition",
 ]);
 export type SceneActionType = z.infer<typeof SceneActionType>;
 
@@ -53,6 +54,43 @@ export const SketchDiagramSpec = z.object({
 });
 export type SketchDiagramSpec = z.infer<typeof SketchDiagramSpec>;
 
+// Revision-2 Layer 3 — a template is data: a fixed set of named slots, each
+// pre-designed (position/scale/z-order) by a human inside the template
+// component itself. The planner only ever selects a templateId and fills
+// declared slots — never invents freeform layout, which is what keeps its
+// output always renderable (revision-2 doc, Layer 3).
+export const CompositionSlotSchema = z.object({
+  assetId: z.string().optional(),
+  imageConcept: z.string().max(300).optional(),
+  // Populated by resolveImages, never author-supplied — same discipline as
+  // the top-level action fields above.
+  imageUrl: z.string().optional(),
+  label: z.string().optional(),
+  // Offset in seconds from the scene's own start, not absolute video time —
+  // lets one slot (e.g. an arrow, or panel 2) reveal after another within
+  // the same scene, extending DrawOn's existing per-action timing model
+  // down to the per-slot level.
+  revealAtSeconds: z.number().nonnegative().optional(),
+});
+export type CompositionSlot = z.infer<typeof CompositionSlotSchema>;
+
+export const CompositionTemplateId = z.enum([
+  "hero-backdrop",
+  "pyramid-flanked",
+  "storyboard-4panel",
+  "comparison-2box",
+]);
+export type CompositionTemplateId = z.infer<typeof CompositionTemplateId>;
+
+export const CompositionSpec = z.object({
+  templateId: CompositionTemplateId,
+  // A generic heading, used the same way by every template — so a
+  // template doesn't need its own bespoke title field.
+  title: z.string().optional(),
+  slots: z.record(z.string(), CompositionSlotSchema),
+});
+export type CompositionSpec = z.infer<typeof CompositionSpec>;
+
 export const SceneAction = z
   .object({
     id: z.string(),
@@ -76,6 +114,7 @@ export const SceneAction = z
     // as the documented fallback for a genuinely one-off illustration.
     assetId: z.string().optional(),
     sketchDiagram: SketchDiagramSpec.optional(),
+    composition: CompositionSpec.optional(),
     attribution: z.string().optional(),
   })
   .superRefine((action, ctx) => {
@@ -127,6 +166,9 @@ export const SceneAction = z
         break;
       case "sketchDiagram":
         requireField("sketchDiagram", "sketchDiagram");
+        break;
+      case "composition":
+        requireField("composition", "composition");
         break;
     }
   });

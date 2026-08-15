@@ -1,4 +1,4 @@
-import type { SceneDocument } from "../schema/scene";
+import type { SceneDocument, CompositionSlot } from "../schema/scene";
 import type { ImageProvider, ImageProviderName } from "./types";
 import { resolveImage } from "./cache";
 import { resolveAssetId } from "./assetLibrary/registryLookup";
@@ -14,12 +14,104 @@ export interface ImageResolutionResult {
 
 const CONCURRENCY = 3;
 
+interface AssetIdTarget {
+  assetId: string;
+  label: string; // for a clear error message
+  setUrl: (url: string) => void;
+}
+
+interface ConceptTarget {
+  concept: string;
+  setUrl: (url: string) => void;
+  setAssetId: (assetId: string) => void;
+}
+
+/** Every place a raw assetId can appear across a SceneDocument — top-level
+ * actions, sketchDiagram's flanking characters, and (Layer 3) composition
+ * slots — collected into one flat list so they all resolve through the
+ * same $0 registry lookup instead of three separate near-duplicate loops. */
+function collectAssetIdTargets(sceneDocument: SceneDocument): AssetIdTarget[] {
+  const targets: AssetIdTarget[] = [];
+
+  for (const action of sceneDocument.actions) {
+    if (action.assetId && !action.imageUrl) {
+      targets.push({ assetId: action.assetId, label: `action "${action.id}"`, setUrl: (url) => (action.imageUrl = url) });
+    }
+
+    const diagram = action.sketchDiagram;
+    if (diagram) {
+      if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) {
+        targets.push({
+          assetId: diagram.leftCharacterAssetId,
+          label: `sketchDiagram leftCharacterAssetId (action "${action.id}")`,
+          setUrl: (url) => (diagram.leftCharacterUrl = url),
+        });
+      }
+      if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) {
+        targets.push({
+          assetId: diagram.rightCharacterAssetId,
+          label: `sketchDiagram rightCharacterAssetId (action "${action.id}")`,
+          setUrl: (url) => (diagram.rightCharacterUrl = url),
+        });
+      }
+    }
+
+    const composition = action.composition;
+    if (composition) {
+      for (const [slotName, slot] of Object.entries(composition.slots)) {
+        if (slot.assetId && !slot.imageUrl) {
+          targets.push({
+            assetId: slot.assetId,
+            label: `composition slot "${slotName}" (action "${action.id}")`,
+            setUrl: (url) => (slot.imageUrl = url),
+          });
+        }
+      }
+    }
+  }
+
+  return targets;
+}
+
+/** Same idea as collectAssetIdTargets, for live-generation (imageConcept)
+ * targets — currently top-level actions and composition slots. */
+function collectConceptTargets(sceneDocument: SceneDocument): ConceptTarget[] {
+  const targets: ConceptTarget[] = [];
+
+  for (const action of sceneDocument.actions) {
+    if (action.imageConcept && !action.imageUrl) {
+      targets.push({
+        concept: action.imageConcept,
+        setUrl: (url) => (action.imageUrl = url),
+        setAssetId: (assetId) => (action.assetId = assetId),
+      });
+    }
+
+    const composition = action.composition;
+    if (composition) {
+      for (const slot of Object.values(composition.slots)) {
+        if (slot.imageConcept && !slot.imageUrl) {
+          targets.push({
+            concept: slot.imageConcept,
+            setUrl: (url) => (slot.imageUrl = url),
+            setAssetId: (assetId) => (slot.assetId = assetId),
+          });
+        }
+      }
+    }
+  }
+
+  return targets;
+}
+
 /**
- * Walks every action, resolving imageConcept -> imageUrl (cache-first) for
- * any action that has one but no imageUrl yet, then mutates the scene
- * document in place. Runs before TTS in resolveSceneDocument — same
- * position in the pipeline TTS itself occupies — so a failed image
- * generation fails fast and cheap, before the expensive render step.
+ * Walks every action (including sketchDiagram characters and, since Layer
+ * 3, composition slots), resolving assetId/imageConcept -> imageUrl
+ * (cache-first) for anything that has one but no imageUrl yet, then
+ * mutates the scene document in place. Runs before TTS in
+ * resolveSceneDocument — same position in the pipeline TTS itself
+ * occupies — so a failed image generation fails fast and cheap, before
+ * the expensive render step.
  */
 export async function resolveImages(
   sceneDocument: SceneDocument,
@@ -29,36 +121,15 @@ export async function resolveImages(
   // call — and resolves first, since it's the default path for any
   // recurring character/prop. imageConcept (live generation) only ever
   // runs for actions that don't select a library asset.
-  const assetActions = sceneDocument.actions.filter((action) => action.assetId && !action.imageUrl);
-  for (const action of assetActions) {
-    const resolved = await resolveAssetId(action.assetId!);
+  for (const target of collectAssetIdTargets(sceneDocument)) {
+    const resolved = await resolveAssetId(target.assetId);
     if (!resolved) {
-      throw new Error(`assetId "${action.assetId}" was not found in the asset library registry.`);
+      throw new Error(`assetId "${target.assetId}" (${target.label}) was not found in the asset library registry.`);
     }
-    action.imageUrl = resolved.imageUrl;
+    target.setUrl(resolved.imageUrl);
   }
 
-  // Same registry lookup, for the characters flanking a sketchDiagram.
-  const diagramActions = sceneDocument.actions.filter((action) => action.sketchDiagram);
-  for (const action of diagramActions) {
-    const diagram = action.sketchDiagram!;
-    if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) {
-      const resolved = await resolveAssetId(diagram.leftCharacterAssetId);
-      if (!resolved) {
-        throw new Error(`sketchDiagram leftCharacterAssetId "${diagram.leftCharacterAssetId}" was not found in the asset library registry.`);
-      }
-      diagram.leftCharacterUrl = resolved.imageUrl;
-    }
-    if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) {
-      const resolved = await resolveAssetId(diagram.rightCharacterAssetId);
-      if (!resolved) {
-        throw new Error(`sketchDiagram rightCharacterAssetId "${diagram.rightCharacterAssetId}" was not found in the asset library registry.`);
-      }
-      diagram.rightCharacterUrl = resolved.imageUrl;
-    }
-  }
-
-  const pending = sceneDocument.actions.filter((action) => action.imageConcept && !action.imageUrl);
+  const pending = collectConceptTargets(sceneDocument);
 
   let imagesGenerated = 0;
   let cacheHits = 0;
@@ -80,36 +151,36 @@ export async function resolveImages(
   for (let i = 0; i < pending.length; i += CONCURRENCY) {
     const batch = pending.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
-      batch.map(async (action) => {
+      batch.map(async (target) => {
         if (useLibraryExpansion) {
           const trainedProvider = opts.provider as TrainedStyleImageProvider;
-          const expanded = await resolveConceptViaLibrary(action.imageConcept!, {
+          const expanded = await resolveConceptViaLibrary(target.concept, {
             falApiKey: trainedProvider.apiKey,
             anthropicApiKey: process.env.ANTHROPIC_API_KEY,
             styleModel: trainedProvider.styleModel,
           });
           return {
-            action,
+            target,
             generated: {
               imageUrl: expanded.imageUrl,
               cacheHit: expanded.reused,
               costUsd: expanded.costUsd,
-              assetId: expanded.assetId,
+              assetId: expanded.assetId as string | undefined,
             },
           };
         }
-        const generated = await resolveImage(action.imageConcept!, {
+        const generated = await resolveImage(target.concept, {
           provider: opts.provider!,
           styleVariant: sceneDocument.styleVariant,
           orientation: opts.orientation,
         });
-        return { action, generated };
+        return { target, generated: { ...generated, assetId: undefined as string | undefined } };
       }),
     );
 
-    for (const { action, generated } of results) {
-      action.imageUrl = generated.imageUrl;
-      if ("assetId" in generated) action.assetId = generated.assetId;
+    for (const { target, generated } of results) {
+      target.setUrl(generated.imageUrl);
+      if (generated.assetId) target.setAssetId(generated.assetId);
       if (generated.cacheHit) cacheHits++;
       else imagesGenerated++;
       costUsd += generated.costUsd;
@@ -123,3 +194,5 @@ export async function resolveImages(
     provider: pending.length > 0 ? opts.provider!.name : undefined,
   };
 }
+
+export type { CompositionSlot };

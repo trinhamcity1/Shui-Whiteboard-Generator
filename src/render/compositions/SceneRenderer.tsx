@@ -10,6 +10,12 @@ import { ComparisonCards } from "../components/ComparisonCards";
 import { Quote } from "../components/Quote";
 import { FullBleedGraphic } from "../components/FullBleedGraphic";
 import { SketchDiagram } from "../components/SketchDiagram";
+import {
+  HeroBackdropTemplate,
+  PyramidFlankedTemplate,
+  Storyboard4PanelTemplate,
+  Comparison2BoxTemplate,
+} from "../components/CompositionTemplates";
 import { ThemeProvider } from "../theme/ThemeContext";
 import { getTheme } from "../theme/themes";
 
@@ -45,6 +51,21 @@ function ActionRenderer({ action }: { action: SceneAction }) {
           rightCharacterSrc={diagram.rightCharacterUrl}
         />
       );
+    }
+    case "composition": {
+      const composition = action.composition;
+      if (!composition) return null;
+      const props = { title: composition.title, slots: composition.slots };
+      switch (composition.templateId) {
+        case "hero-backdrop":
+          return <HeroBackdropTemplate {...props} />;
+        case "pyramid-flanked":
+          return <PyramidFlankedTemplate {...props} />;
+        case "storyboard-4panel":
+          return <Storyboard4PanelTemplate {...props} />;
+        case "comparison-2box":
+          return <Comparison2BoxTemplate {...props} />;
+      }
     }
   }
 }
