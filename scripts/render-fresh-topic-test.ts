@@ -15,10 +15,14 @@ const VOICE_ID = process.env.TTS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
 // end to end: real planning, real registry reuse (narrator), real live
 // generation through the trained model for anything not in the library,
 // real render. Nothing hand-authored below the narration script itself.
-const NARRATION_SCRIPT =
-  "Meditation can help improve focus and productivity. When you meditate, you train your brain to notice " +
-  "when your attention wanders and gently bring it back. Over time, this makes it easier to concentrate " +
-  "on a single task without getting distracted. Even five minutes a day can make a real difference.";
+const NARRATION_SCRIPT = process.argv[2] === "--water-cycle"
+  ? "Water is always moving through a cycle. The sun heats the ocean, and water evaporates into the air as " +
+    "vapor. High in the sky, that vapor cools and condenses into clouds. When the clouds get heavy enough, " +
+    "the water falls back down as rain. That rain collects in rivers and lakes, and eventually flows back " +
+    "to the ocean, where the whole cycle starts again."
+  : "Meditation can help improve focus and productivity. When you meditate, you train your brain to notice " +
+    "when your attention wanders and gently bring it back. Over time, this makes it easier to concentrate " +
+    "on a single task without getting distracted. Even five minutes a day can make a real difference.";
 
 async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -37,7 +41,7 @@ async function main() {
     },
     apiKey,
     rootDir: ROOT,
-    outputLocation: path.join(outputDir, "fresh-topic-test.mp4"),
+    outputLocation: path.join(outputDir, process.argv[2] === "--water-cycle" ? "water-cycle-test.mp4" : "fresh-topic-test.mp4"),
     uploadKey: `local-tests/fresh-topic-test-${Date.now()}.mp4`,
     audioFileName: "tts-audio.mp3",
     inlineImagesForLocalDev: true,
