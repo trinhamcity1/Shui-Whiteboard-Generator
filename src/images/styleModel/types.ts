@@ -6,6 +6,10 @@ export interface StyleCandidate {
   localPath: string;
   costUsd: number;
   generatedAt: string;
+  /** Revision 3: which house-style register this candidate targets. */
+  register?: "clean" | "rich";
+  /** Revision 3: set on both halves of a same-subject cross-register pair — curation checks these together (Part I §4's acceptance test). */
+  pairId?: string;
 }
 
 /** Written once training completes — the one artifact every future asset-library generation reads. */

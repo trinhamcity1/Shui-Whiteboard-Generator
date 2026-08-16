@@ -26,6 +26,7 @@
     "promote-quarantined-assets": "tsx scripts/promote-quarantined-assets.ts",
     "render-composition-stills": "tsx scripts/render-composition-stills.ts",
     "render-pyramid-flanked-still": "tsx scripts/render-pyramid-flanked-still.ts",
+    "build-candidate-contact-sheet": "tsx scripts/build-candidate-contact-sheet.ts",
     "serve": "tsx src/api/server.ts",
     "create-api-key": "tsx scripts/create-api-key.ts",
     "deploy": "bash scripts/deploy-cloud-run.sh",

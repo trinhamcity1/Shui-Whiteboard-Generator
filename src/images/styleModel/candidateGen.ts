@@ -30,7 +30,7 @@ export async function generateCandidates(args: {
   for (let i = 0; i < specs.length; i++) {
     const spec = specs[i]!;
     const id = `candidate-${String(i + 1).padStart(4, "0")}`;
-    process.stdout.write(`[${i + 1}/${specs.length}] ${id} — ${spec.subject}... `);
+    process.stdout.write(`[${i + 1}/${specs.length}] ${id} [${spec.register}] — ${spec.subject}... `);
 
     const response = await fetch("https://fal.run/fal-ai/flux/schnell", {
       method: "POST",
@@ -71,6 +71,8 @@ export async function generateCandidates(args: {
       localPath,
       costUsd: COST_PER_IMAGE_USD,
       generatedAt: new Date().toISOString(),
+      register: spec.register,
+      pairId: spec.pairId,
     });
     console.log("done");
   }
