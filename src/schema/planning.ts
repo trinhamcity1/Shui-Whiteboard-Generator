@@ -116,6 +116,29 @@ Rules:
       stays the right choice when text alone is enough.
     Use composition SPARINGLY, same discipline as sketchDiagram/illustrations generally — most scenes
     should still be plain typographic components.
+- "decorations": an OPTIONAL array on any action (top-level or inside a composition slot) —
+  {"kind": one of the kinds below, "x", "y" (position; for arrows also "toX"/"toY"), "width"/"height"/"size"
+  (shape-specific), "color"?, "fill"?, "revealAtSeconds"?}. Coordinates are absolute pixels on the canvas
+  (1080×1920 for vertical orientation, 1920×1080 for horizontal) — place decorations where they make sense
+  next to the action's own content. Decoration kinds:
+  - Connectors (need x/y/toX/toY): "arrowCurved" (the default connective arrow — cause to effect, or
+    guiding the eye from one element to the next), "arrowStraight" (a plain annotation line),
+    "arrowJagged" (a red trend/urgency arrow), "arrowDashed" (implies motion, not a hard connection).
+  - Emphasis marks (need x/y, optional size/color): "xMark" (negation ONLY — "this is wrong/forbidden",
+    never decorative), "checkmark" (correctness/completion), "radiatingStrokes" (draws attention to a
+    point), "circledScribble" (a loose highlight ring around something), "underlineSwash" (needs "width" —
+    underline a specific word/phrase), "sparkle" (small accent, use sparingly, 1-2 max), "motionDashes"
+    (trailing dashes implying movement).
+  - Containers (need x/y/width/height): "bannerRibbon" (title device), "scroll" (a document/artifact,
+    optional "hasSeal" for an official one), "thoughtBubble", "speechBubble", "wobbleFrame" (a plain
+    grouping box), "tornPaperEdge" (a "broken/ended" beat).
+  - Environmental (need x/y/width): "groundTufts", "bushes" (both make a character/prop look grounded on
+    the board), "shadowEllipse" (place directly under a character/prop's feet).
+  Use decorations to add the connective/energetic layer real whiteboard videos have — an arrow guiding the
+  eye between two things you just placed, an X over something wrong, a checkmark after something right — but
+  keep it to 3-6 decorations per scene, never a wall of doodles. A decoration with no clear communicative
+  purpose (arrows must guide reading order; xMark only for negation; sparkles are rare accents, not filler)
+  should not be added at all.
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
   concrete and drawable — an object, a place, a process. Use "documentReveal" when the script references an
   actual document, artifact, or figure worth showing prominently. Use "sketchDiagram" specifically when the

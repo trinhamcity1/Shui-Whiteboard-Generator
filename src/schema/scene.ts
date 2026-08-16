@@ -54,6 +54,58 @@ export const SketchDiagramSpec = z.object({
 });
 export type SketchDiagramSpec = z.infer<typeof SketchDiagramSpec>;
 
+// Revision-3 Workstream 2 — the doodle decoration vocabulary: owned SVG
+// components (arrows, emphasis marks, containers, environmental dressing),
+// never AI-generated images, placeable on any action or composition slot.
+// One flexible shape covers every kind rather than one schema per
+// decoration type, since most fields (x/y/color/size) are shared and only
+// a few are kind-specific (toX/toY for arrows, width/height for
+// containers) — see src/render/decorations/Decoration.tsx for the
+// dispatch from this spec to its concrete component.
+export const DecorationKind = z.enum([
+  "arrowCurved",
+  "arrowStraight",
+  "arrowJagged",
+  "arrowDashed",
+  "xMark",
+  "checkmark",
+  "radiatingStrokes",
+  "circledScribble",
+  "underlineSwash",
+  "sparkle",
+  "motionDashes",
+  "bannerRibbon",
+  "scroll",
+  "thoughtBubble",
+  "speechBubble",
+  "wobbleFrame",
+  "tornPaperEdge",
+  "groundTufts",
+  "bushes",
+  "shadowEllipse",
+]);
+export type DecorationKind = z.infer<typeof DecorationKind>;
+
+export const DecorationSpec = z.object({
+  kind: DecorationKind,
+  x: z.number().optional(),
+  y: z.number().optional(),
+  // Arrow-only: the point it points to.
+  toX: z.number().optional(),
+  toY: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  size: z.number().optional(),
+  color: z.string().optional(),
+  fill: z.string().optional(),
+  // Scroll-only.
+  hasSeal: z.boolean().optional(),
+  // Offset in seconds from the scene's own start — same per-slot timing
+  // model as CompositionSlot.revealAtSeconds below.
+  revealAtSeconds: z.number().nonnegative().optional(),
+});
+export type DecorationSpec = z.infer<typeof DecorationSpec>;
+
 // Revision-2 Layer 3 — a template is data: a fixed set of named slots, each
 // pre-designed (position/scale/z-order) by a human inside the template
 // component itself. The planner only ever selects a templateId and fills
@@ -71,6 +123,10 @@ export const CompositionSlotSchema = z.object({
   // the same scene, extending DrawOn's existing per-action timing model
   // down to the per-slot level.
   revealAtSeconds: z.number().nonnegative().optional(),
+  // Workstream 2 — decorations placed relative to this slot's own template
+  // position (each template component decides how to interpret a slot's
+  // local coordinate space).
+  decorations: z.array(DecorationSpec).optional(),
 });
 export type CompositionSlot = z.infer<typeof CompositionSlotSchema>;
 
@@ -116,6 +172,10 @@ export const SceneAction = z
     sketchDiagram: SketchDiagramSpec.optional(),
     composition: CompositionSpec.optional(),
     attribution: z.string().optional(),
+    // Workstream 2 — decorations overlaid on top of this action's own
+    // rendered content, full-bleed over the action's frame. Optional and
+    // additive to every action type; never required.
+    decorations: z.array(DecorationSpec).optional(),
   })
   .superRefine((action, ctx) => {
     // Cheap, targeted checks that a given action type carries the fields it

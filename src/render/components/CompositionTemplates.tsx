@@ -3,6 +3,7 @@ import { AbsoluteFill, Img, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
 import { SketchDiagram } from "./SketchDiagram";
 import { SKETCH_COLORS, SKETCH_FONT_FAMILY, sketchFontFaceCss } from "../sketchStyle";
+import { DecorationLayer } from "../decorations";
 import type { CompositionSlot } from "../../schema/scene";
 
 /**
@@ -35,6 +36,13 @@ export interface CompositionTemplateProps {
 function useSlotOffsetFrames(slot: CompositionSlot | undefined): number {
   const { fps } = useVideoConfig();
   return Math.round((slot?.revealAtSeconds ?? 0) * fps);
+}
+
+/** Collects every slot's decorations into one full-bleed overlay — decoration coordinates are absolute canvas-space, same as a plain action's. */
+function SlotDecorations({ slots }: { slots: Record<string, CompositionSlot> }) {
+  const all = Object.values(slots).flatMap((slot) => slot.decorations ?? []);
+  if (all.length === 0) return null;
+  return <DecorationLayer decorations={all} />;
 }
 
 function SlotReveal({
@@ -117,6 +125,7 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
           </div>
         </SlotReveal>
       )}
+    <SlotDecorations slots={slots} />
     </AbsoluteFill>
   );
 }
@@ -137,13 +146,16 @@ export function PyramidFlankedTemplate({ title, slots }: CompositionTemplateProp
     .filter((t) => t.label.length > 0);
 
   return (
-    <SketchDiagram
-      diagramType="pyramid"
-      title={title ?? ""}
-      tiers={tierEntries.length > 0 ? tierEntries : [{ label: "" }]}
-      leftCharacterSrc={slots.leftCharacter?.imageUrl}
-      rightCharacterSrc={slots.rightCharacter?.imageUrl}
-    />
+    <>
+      <SketchDiagram
+        diagramType="pyramid"
+        title={title ?? ""}
+        tiers={tierEntries.length > 0 ? tierEntries : [{ label: "" }]}
+        leftCharacterSrc={slots.leftCharacter?.imageUrl}
+        rightCharacterSrc={slots.rightCharacter?.imageUrl}
+      />
+      <SlotDecorations slots={slots} />
+    </>
   );
 }
 
@@ -211,6 +223,7 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
           </SlotReveal>
         );
       })}
+    <SlotDecorations slots={slots} />
     </AbsoluteFill>
   );
 }
@@ -280,6 +293,7 @@ export function Comparison2BoxTemplate({ title, slots }: CompositionTemplateProp
       >
         VS
       </div>
+    <SlotDecorations slots={slots} />
     </AbsoluteFill>
   );
 }

@@ -18,8 +18,18 @@ import {
 } from "../components/CompositionTemplates";
 import { ThemeProvider } from "../theme/ThemeContext";
 import { getTheme } from "../theme/themes";
+import { DecorationLayer } from "../decorations";
 
 function ActionRenderer({ action }: { action: SceneAction }) {
+  return (
+    <>
+      <ActionContent action={action} />
+      <DecorationLayer decorations={action.decorations} />
+    </>
+  );
+}
+
+function ActionContent({ action }: { action: SceneAction }) {
   switch (action.type) {
     case "titleCard":
       return <TitleCard text={action.text ?? ""} startFrame={0} />;
