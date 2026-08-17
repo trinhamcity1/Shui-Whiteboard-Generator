@@ -54,6 +54,15 @@ function collectAssetIdTargets(sceneDocument: SceneDocument): AssetIdTarget[] {
           setUrl: (url) => (diagram.rightCharacterUrl = url),
         });
       }
+      diagram.tiers.forEach((tier, tierIndex) => {
+        if (tier.insetAssetId && !tier.insetImageUrl) {
+          targets.push({
+            assetId: tier.insetAssetId,
+            label: `sketchDiagram tier[${tierIndex}] insetAssetId (action "${action.id}")`,
+            setUrl: (url) => (tier.insetImageUrl = url),
+          });
+        }
+      });
     }
 
     const composition = action.composition;

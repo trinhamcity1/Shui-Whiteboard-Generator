@@ -55,7 +55,7 @@ function ActionContent({ action }: { action: SceneAction }) {
           diagramType={diagram.diagramType}
           title={diagram.title}
           topLabel={diagram.topLabel}
-          tiers={diagram.tiers}
+          tiers={diagram.tiers.map((tier) => ({ label: tier.label, color: tier.color, insetSrc: tier.insetImageUrl }))}
           bottomBanner={diagram.bottomBanner}
           leftCharacterSrc={diagram.leftCharacterUrl}
           rightCharacterSrc={diagram.rightCharacterUrl}

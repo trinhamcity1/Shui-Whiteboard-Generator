@@ -30,6 +30,13 @@ export const ComparisonCard = z.object({
 export const PyramidTierSchema = z.object({
   label: z.string(),
   color: z.string().optional(),
+  // Revision-3 Workstream 3: an optional small icon-scale illustration
+  // inside the tier itself, alongside its label — "diagram shapes carry
+  // embedded content" (Part I §8), not just an outline. Resolved to
+  // insetImageUrl by resolveImages, same pattern as assetId elsewhere —
+  // never author-supplied directly.
+  insetAssetId: z.string().optional(),
+  insetImageUrl: z.string().optional(),
 });
 
 export const SketchDiagramSpec = z.object({

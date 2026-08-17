@@ -166,6 +166,7 @@ export interface LibraryAssetRecord {
   origin: "v1-manifest" | "auto-expanded";
   quarantineStatus: "pending" | "promoted";
   labelAnchor?: { xFraction: number; yFraction: number };
+  anchors?: Array<{ xFraction: number; yFraction: number; kind: "label" | "inset" | "attachment" }>;
   dominantColor?: string;
 }
 

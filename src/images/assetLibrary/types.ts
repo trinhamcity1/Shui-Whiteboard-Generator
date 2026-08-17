@@ -15,6 +15,20 @@ export interface LabelAnchor {
   yFraction: number; // 0-1 down the asset's own cropped height
 }
 
+/** Revision-3 Workstream 3: labelAnchor generalizes to a list of typed
+ * anchor points on one asset — a building can carry a "label" anchor (its
+ * name on the frieze) AND one or more "attachment" anchors (a character
+ * standing on its steps), and a small prop can carry an "inset" anchor
+ * (where it sits when placed inside a diagram tier). Kept alongside the
+ * older singular `labelAnchor` field rather than replacing it — existing
+ * registry entries only have that one, and `firstAnchor()` below reads
+ * either shape transparently. */
+export type AnchorKind = "label" | "inset" | "attachment";
+
+export interface AnchorPoint extends LabelAnchor {
+  kind: AnchorKind;
+}
+
 /** Persisted record — matches the amendment doc's LibraryAsset interface (§4). */
 export interface LibraryAsset {
   id: string;
@@ -31,8 +45,21 @@ export interface LibraryAsset {
   description: string;
   origin: AssetOrigin;
   quarantineStatus: QuarantineStatus;
+  /** @deprecated single-anchor predecessor of `anchors` — still written/read for compatibility, prefer `anchors`. */
   labelAnchor?: LabelAnchor;
+  anchors?: AnchorPoint[];
   dominantColor?: string;
+}
+
+/** Reads the first anchor of a given kind, falling back to the legacy
+ * singular `labelAnchor` field when `kind === "label"` and `anchors` is
+ * absent — so callers never need to know which shape a given registry
+ * entry was written in. */
+export function firstAnchor(asset: Pick<LibraryAsset, "anchors" | "labelAnchor">, kind: AnchorKind): LabelAnchor | undefined {
+  const found = asset.anchors?.find((a) => a.kind === kind);
+  if (found) return found;
+  if (kind === "label") return asset.labelAnchor;
+  return undefined;
 }
 
 /** One row of the generation manifest — the input to scripts/generate-asset-library.ts. */

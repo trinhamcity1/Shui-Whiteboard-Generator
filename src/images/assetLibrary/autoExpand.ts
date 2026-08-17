@@ -3,7 +3,7 @@ import { createLibraryAsset, type LibraryAssetRecord } from "../../storage/fires
 import { listAllLibraryAssets } from "./registryLookup";
 import { appendLocalLibraryAsset } from "./localRegistry";
 import { findSemanticMatch } from "./semanticMatch";
-import { detectLabelAnchor } from "./anchorDetection";
+import { detectAnchors } from "./anchorDetection";
 import { uploadBufferToR2 } from "../../storage/r2";
 import { TrainedStyleImageProvider } from "../trainedStyle";
 import type { StyleModelVersion } from "../styleModel/types";
@@ -83,7 +83,7 @@ export async function resolveConceptViaLibrary(
   const r2Key = `assets/auto-expanded/${assetId}.png`;
   const { url } = await uploadBufferToR2({ buffer: raw.imageBuffer, key: r2Key, contentType: raw.contentType });
 
-  const anchorResult = await detectLabelAnchor(raw.imageBuffer, { apiKey: opts.anthropicApiKey });
+  const anchorResult = await detectAnchors(raw.imageBuffer, { apiKey: opts.anthropicApiKey });
 
   const record: LibraryAssetRecord = {
     id: assetId,
@@ -104,6 +104,7 @@ export async function resolveConceptViaLibrary(
     // the video that needed this asset right now.
     quarantineStatus: "pending",
     labelAnchor: anchorResult.labelAnchor ?? undefined,
+    anchors: anchorResult.anchors.length > 0 ? anchorResult.anchors : undefined,
     dominantColor: anchorResult.dominantColor ?? undefined,
   };
 

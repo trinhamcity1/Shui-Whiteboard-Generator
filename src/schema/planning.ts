@@ -73,8 +73,12 @@ Rules:
     genuinely not in the library. NEVER set "imageUrl" yourself — you have no real images, only descriptions
     and asset ids.
   - sketchDiagram: "sketchDiagram" object — {"diagramType": "pyramid" | "flowchart" | "comparison",
-    "title": string, "tiers": [{"label": string}, ...], "topLabel"?: string, "bottomBanner"?: string,
-    "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}. Tier labels are drawn as real
+    "title": string, "tiers": [{"label": string, "insetAssetId"?: string}, ...], "topLabel"?: string,
+    "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}.
+    insetAssetId (pyramid mode only) places a small icon-scale library asset inside that tier next to its
+    label, when one from the library fits — "diagram shapes carry embedded content," a small icon inside
+    the tier reads as more composed than a bare colored band. Optional; only set it when a real matching
+    icon-scale asset exists in the library below. Tier labels are drawn as real
     text, always correctly spelled — never ask for a diagram with words baked into an
     imageConcept/assetId illustration. Keep each tier/step label SHORT (a few words, not a full clause
     with its own explanation) — it has to fit inside a drawn shape, not read like a sentence.

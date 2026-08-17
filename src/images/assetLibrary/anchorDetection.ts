@@ -1,56 +1,73 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { AnchorKind, AnchorPoint } from "./types";
 
 const MODEL = "claude-haiku-4-5-20251001";
 const INPUT_COST_PER_MTOK_USD = 0.8;
 const OUTPUT_COST_PER_MTOK_USD = 4.0;
 
 export interface AnchorDetectionResult {
+  /** @deprecated kept for existing callers — same value as the "label" entry in `anchors`, if any. */
   labelAnchor: { xFraction: number; yFraction: number } | null;
+  anchors: AnchorPoint[];
   dominantColor: string | null;
   tokensUsed: number;
   costUsd: number;
 }
 
 /**
- * Layer 2 step 3: reads a newly generated asset and returns where a text
- * label would sit well on it (e.g. a plaque/sign area on a building), plus
- * the asset's dominant color for matching a label board to it — no human
- * ever clicks a coordinate. See the revision-2 doc, Layer 1's labelAnchor
- * field and Layer 2's step 3.
+ * Layer 2 step 3 (revision-2), generalized in revision-3 Workstream 3: one
+ * vision call now finds up to three kinds of anchor point on a newly
+ * generated asset, no human ever clicking a coordinate:
+ * - "label": a flat area for a text label to sit on (a sign, a plaque, a
+ *   building's frieze) — the original single-purpose anchor.
+ * - "inset": a good spot to place a small icon-scale illustration inside
+ *   the asset itself (a diagram tier's inset), typically only meaningful
+ *   on larger/simpler shapes.
+ * - "attachment": a spot a character could stand/sit at *on* this asset
+ *   (a building's front steps, a desk's chair) — what makes composition
+ *   templates read as "characters interacting with content" instead of
+ *   assets placed in neighboring slots (Part I §7/§8).
  *
- * Returns nulls (never throws) when the model can't find a sensible flat
- * area to label — not every asset needs one, and a bad guess is worse than
- * no anchor at all since a caller only uses this for label placement.
+ * Any/all of these can be absent — most assets (a plain character
+ * portrait, a small prop) have none, and a bad guess is worse than no
+ * anchor at all since callers only use this for placement.
  */
-export async function detectLabelAnchor(
+export async function detectAnchors(
   imageBuffer: Buffer,
   opts: { apiKey?: string; model?: string } = {},
 ): Promise<AnchorDetectionResult> {
   const apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set — required for Layer 2 anchor detection.");
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set — required for anchor detection.");
 
   const client = new Anthropic({ apiKey });
-  const system = `You look at a single illustration (transparent/flat background already removed) and find
-the single best flat area on the subject itself for a short text label to sit on top of — e.g. a
-sign, a plaque, a building's frieze, a book's cover, a flag's field. Many illustrations (a person,
-a simple prop with no flat surface) have NO sensible label area — say so honestly, don't invent one.
+  const system = `You look at a single illustration (transparent/flat background already removed) and find up to
+three kinds of anchor point on it, each optional — most illustrations have zero or one, not all three:
+1. "label": the single best flat area for a short text label to sit on top of — e.g. a sign, a
+   plaque, a building's frieze, a book's cover, a flag's field.
+2. "inset": a good spot to place a small icon-scale illustration INSIDE this asset (only meaningful
+   for a large, simple shape like a building or box — never for a character or a small prop).
+3. "attachment": a spot where a character could visually stand or sit ON this asset — e.g. a
+   building's front steps, a bench, a desk's chair (only meaningful for scene-scale props/backdrops,
+   never for a character itself).
+Be honest — inventing an anchor that doesn't make sense is worse than reporting none.
 
 Respond with ONLY a JSON object:
-{"hasLabelArea": boolean, "xFraction": number | null, "yFraction": number | null, "dominantColor": string}
-xFraction/yFraction are 0-1 fractions of the image's own width/height (0,0 = top-left), the center
-of the best label area, or null if hasLabelArea is false. dominantColor is a short CSS-style hex
-color (e.g. "#8a6d4b") sampled from the subject's largest solid-color region.`;
+{"anchors": [{"kind": "label"|"inset"|"attachment", "xFraction": number, "yFraction": number}, ...],
+"dominantColor": string}
+xFraction/yFraction are 0-1 fractions of the image's own width/height (0,0 = top-left), the center of
+that anchor. dominantColor is a short CSS-style hex color (e.g. "#8a6d4b") sampled from the subject's
+largest solid-color region.`;
 
   const response = await client.messages.create({
     model: opts.model ?? MODEL,
-    max_tokens: 200,
+    max_tokens: 300,
     system,
     messages: [
       {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: "image/png", data: imageBuffer.toString("base64") } },
-          { type: "text", text: "Find the label anchor and dominant color for this illustration." },
+          { type: "text", text: "Find the anchor points and dominant color for this illustration." },
         ],
       },
     ],
@@ -66,17 +83,24 @@ color (e.g. "#8a6d4b") sampled from the subject's largest solid-color region.`;
   try {
     const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
     const parsed = JSON.parse(fenceMatch ? fenceMatch[1]! : rawText) as {
-      hasLabelArea: boolean;
-      xFraction: number | null;
-      yFraction: number | null;
+      anchors: Array<{ kind: AnchorKind; xFraction: number; yFraction: number }>;
       dominantColor: string;
     };
-    const labelAnchor =
-      parsed.hasLabelArea && typeof parsed.xFraction === "number" && typeof parsed.yFraction === "number"
-        ? { xFraction: parsed.xFraction, yFraction: parsed.yFraction }
-        : null;
-    return { labelAnchor, dominantColor: parsed.dominantColor ?? null, tokensUsed, costUsd };
+    const anchors: AnchorPoint[] = (parsed.anchors ?? []).filter(
+      (a) => typeof a.xFraction === "number" && typeof a.yFraction === "number" && ["label", "inset", "attachment"].includes(a.kind),
+    );
+    const label = anchors.find((a) => a.kind === "label");
+    return {
+      labelAnchor: label ? { xFraction: label.xFraction, yFraction: label.yFraction } : null,
+      anchors,
+      dominantColor: parsed.dominantColor ?? null,
+      tokensUsed,
+      costUsd,
+    };
   } catch {
-    return { labelAnchor: null, dominantColor: null, tokensUsed, costUsd };
+    return { labelAnchor: null, anchors: [], dominantColor: null, tokensUsed, costUsd };
   }
 }
+
+/** @deprecated use detectAnchors — kept so any existing caller keeps compiling. */
+export const detectLabelAnchor = detectAnchors;

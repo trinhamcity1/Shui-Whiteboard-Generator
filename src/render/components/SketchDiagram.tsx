@@ -21,6 +21,11 @@ import { SKETCH_COLORS, SKETCH_LINE, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFo
 export interface PyramidTier {
   label: string;
   color?: string; // defaults to SKETCH_COLORS.tierPalette by index
+  // Revision-3 Workstream 3: a small icon-scale illustration inside the
+  // tier alongside its label — "diagram shapes carry embedded content"
+  // (Part I §8), pyramid mode only (the shape most likely to have real
+  // width to spare per tier).
+  insetSrc?: string;
 }
 
 export type SketchDiagramProps = {
@@ -383,24 +388,41 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       )}
 
       {diagramType === "pyramid" &&
-        tierLayout.map(({ tier, midY }) => (
-          <div
-            key={tier.label}
-            style={{
-              position: "absolute",
-              left: CANVAS_WIDTH / 2 - BOTTOM_WIDTH / 2 + 40,
-              width: BOTTOM_WIDTH - 80,
-              top: midY - fontSizeForLabel(tier.label, 34) * 0.65,
-              textAlign: "center",
-              fontFamily: SKETCH_FONT_FAMILY,
-              fontSize: fontSizeForLabel(tier.label, 34),
-              lineHeight: 1.2,
-              color: SKETCH_COLORS.ink,
-            }}
-          >
-            {tier.label}
-          </div>
-        ))}
+        tierLayout.map(({ tier, midY }) => {
+          const insetSize = TIER_HEIGHT * 0.7;
+          return (
+            <React.Fragment key={tier.label}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: CANVAS_WIDTH / 2 - BOTTOM_WIDTH / 2 + 40,
+                  width: BOTTOM_WIDTH - 80 - (tier.insetSrc ? insetSize + 16 : 0),
+                  top: midY - fontSizeForLabel(tier.label, 34) * 0.65,
+                  textAlign: "center",
+                  fontFamily: SKETCH_FONT_FAMILY,
+                  fontSize: fontSizeForLabel(tier.label, 34),
+                  lineHeight: 1.2,
+                  color: SKETCH_COLORS.ink,
+                }}
+              >
+                {tier.label}
+              </div>
+              {tier.insetSrc && (
+                <Img
+                  src={tier.insetSrc}
+                  style={{
+                    position: "absolute",
+                    left: CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 - insetSize - 24,
+                    top: midY - insetSize / 2,
+                    height: insetSize,
+                    width: insetSize,
+                    objectFit: "contain",
+                  }}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
 
       {bottomBanner && (
         <div

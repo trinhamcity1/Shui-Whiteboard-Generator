@@ -35,6 +35,11 @@ export async function inlineRemoteImagesForLocalDev(sceneDocument: SceneDocument
       if (diagram.rightCharacterUrl?.startsWith("https://")) {
         diagram.rightCharacterUrl = await toDataUri(diagram.rightCharacterUrl);
       }
+      for (const tier of diagram.tiers) {
+        if (tier.insetImageUrl?.startsWith("https://")) {
+          tier.insetImageUrl = await toDataUri(tier.insetImageUrl);
+        }
+      }
     }
 
     const composition = action.composition;

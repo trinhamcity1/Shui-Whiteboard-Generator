@@ -49,6 +49,7 @@ function needsImageResolution(sceneDocument: SceneDocument): boolean {
     if (diagram) {
       if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) return true;
       if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) return true;
+      if (diagram.tiers.some((tier) => tier.insetAssetId && !tier.insetImageUrl)) return true;
     }
     const composition = action.composition;
     if (composition) {
