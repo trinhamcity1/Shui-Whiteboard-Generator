@@ -41,13 +41,18 @@ function slugify(concept: string): string {
  */
 export async function resolveConceptViaLibrary(
   concept: string,
-  opts: { falApiKey: string; anthropicApiKey?: string; styleModel: StyleModelVersion },
+  opts: { falApiKey: string; anthropicApiKey?: string; styleModel: StyleModelVersion; role?: "character" | "prop" | "scene" },
 ): Promise<AutoExpandResult> {
+  const role = opts.role ?? "prop";
   const allAssets = await listAllLibraryAssets();
   // Only promoted assets are eligible for reuse — a still-quarantined asset
   // hasn't cleared the shared-registry bar yet (revision-2 doc, Layer 2
   // step 4), so it stays private to the video that spawned it until then.
-  const promoted = allAssets.filter((a) => a.quarantineStatus === "promoted");
+  // Also restricted to the same role — a "scene" backdrop and a "prop"
+  // cutout are processed completely differently (one keeps its full
+  // background, the other has it removed), so a textually-similar
+  // description across roles is never actually a usable match.
+  const promoted = allAssets.filter((a) => a.quarantineStatus === "promoted" && a.role === role);
 
   const exactMatch = promoted.find((a) => normalize(a.description) === normalize(concept));
   if (exactMatch) {
@@ -77,18 +82,25 @@ export async function resolveConceptViaLibrary(
   // No match — generate through the trained LoRA (same model the v1
   // library used, so a live fallback matches the library by construction).
   const provider = new TrainedStyleImageProvider(opts.falApiKey, opts.styleModel);
-  const raw = await provider.generate(concept, { styleVariant: "classic-whiteboard", orientation: "vertical" });
+  const backgroundMode = role === "scene" ? "scene" : "cutout";
+  const raw = await provider.generate(concept, { styleVariant: "classic-whiteboard", orientation: "vertical", backgroundMode });
 
   const assetId = slugify(concept);
   const r2Key = `assets/auto-expanded/${assetId}.png`;
   const { url } = await uploadBufferToR2({ buffer: raw.imageBuffer, key: r2Key, contentType: raw.contentType });
 
-  const anchorResult = await detectAnchors(raw.imageBuffer, { apiKey: opts.anthropicApiKey });
+  // Anchors (label/inset/attachment points) only make sense on a cutout
+  // that gets composited against something else — a full scene has
+  // nothing to anchor to it, so skip the extra vision call entirely.
+  const anchorResult =
+    backgroundMode === "cutout"
+      ? await detectAnchors(raw.imageBuffer, { apiKey: opts.anthropicApiKey })
+      : { labelAnchor: null, anchors: [], dominantColor: null, costUsd: 0 };
 
   const record: LibraryAssetRecord = {
     id: assetId,
     tier: "shared",
-    role: "prop",
+    role,
     provider: "trained-style",
     r2Key,
     imageUrl: url,

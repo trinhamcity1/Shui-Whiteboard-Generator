@@ -24,8 +24,22 @@ interface AssetIdTarget {
 
 interface ConceptTarget {
   concept: string;
+  role: "character" | "prop" | "scene";
   setUrl: (url: string) => void;
   setAssetId: (assetId: string) => void;
+}
+
+/** A slot's name tells us how its image will actually be used: a
+ * character/reactor/person is a standalone figure composited over
+ * something else (needs a transparent cutout); a backdrop/panel/zone/
+ * central image is shown as a complete picture in its own right (wants a
+ * full illustrated scene, not a cutout with the background stripped out).
+ * See trainedStyle.ts's backgroundMode for why this distinction matters —
+ * conflating them was why every "scene"-style concept in a real render
+ * batch came back with a baked-in vignette and failed transparency QA. */
+function classifySlotRole(slotName: string): "character" | "prop" | "scene" {
+  if (/^(character|leftCharacter|rightCharacter|reactor\d*|person\d*)$/.test(slotName)) return "character";
+  return "scene";
 }
 
 /** Every place a raw assetId can appear across a SceneDocument — top-level
@@ -98,9 +112,12 @@ function collectConceptTargets(sceneDocument: SceneDocument): ConceptTarget[] {
   const targets: ConceptTarget[] = [];
 
   for (const action of sceneDocument.actions) {
+    // Top-level imageConcept only ever backs documentReveal/fullBleedGraphic
+    // — always a full-frame visual, never a composited cutout.
     if (action.imageConcept && !action.imageUrl) {
       targets.push({
         concept: action.imageConcept,
+        role: "scene",
         setUrl: (url) => (action.imageUrl = url),
         setAssetId: (assetId) => (action.assetId = assetId),
       });
@@ -108,10 +125,11 @@ function collectConceptTargets(sceneDocument: SceneDocument): ConceptTarget[] {
 
     const composition = action.composition;
     if (composition) {
-      for (const slot of Object.values(composition.slots)) {
+      for (const [slotName, slot] of Object.entries(composition.slots)) {
         if (slot.imageConcept && !slot.imageUrl) {
           targets.push({
             concept: slot.imageConcept,
+            role: classifySlotRole(slotName),
             setUrl: (url) => (slot.imageUrl = url),
             setAssetId: (assetId) => (slot.assetId = assetId),
           });
@@ -182,6 +200,7 @@ export async function resolveImages(
             falApiKey: trainedProvider.apiKey,
             anthropicApiKey: process.env.ANTHROPIC_API_KEY,
             styleModel: trainedProvider.styleModel,
+            role: target.role,
           });
           return {
             target,

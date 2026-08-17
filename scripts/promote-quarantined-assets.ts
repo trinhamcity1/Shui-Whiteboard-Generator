@@ -26,7 +26,7 @@ async function main() {
     const imageResponse = await fetch(asset.imageUrl);
     const buffer = Buffer.from(await imageResponse.arrayBuffer());
 
-    const result = await runQuarantineCheck(buffer);
+    const result = await runQuarantineCheck(buffer, { requireTransparency: asset.role !== "scene" });
     totalCost += result.costUsd;
 
     if (result.passed) {

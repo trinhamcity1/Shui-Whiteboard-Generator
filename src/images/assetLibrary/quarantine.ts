@@ -26,8 +26,14 @@ export interface QuarantineCheckResult {
  */
 export async function runQuarantineCheck(
   imageBuffer: Buffer,
-  opts: { apiKey?: string; model?: string } = {},
+  opts: { apiKey?: string; model?: string; requireTransparency?: boolean } = {},
 ): Promise<QuarantineCheckResult> {
+  // Defaults true — every caller before "scene"-role assets existed wanted
+  // a transparent cutout. A "scene" asset is a full illustrated backdrop
+  // by design (see trainedStyle.ts's backgroundMode) and was never run
+  // through background removal, so checking for transparency on it isn't
+  // validating anything — it would just fail every scene asset outright.
+  const requireTransparency = opts.requireTransparency ?? true;
   const reasons: string[] = [];
   let costUsd = 0;
 
@@ -41,14 +47,16 @@ export async function runQuarantineCheck(
     reasons.push(`Image too small (${width}x${height}px).`);
   }
 
-  if (!metadata.hasAlpha) {
-    reasons.push("Image has no alpha channel — background removal did not produce transparency.");
-  } else {
-    const transparentBorderFraction = await estimateTransparentBorderFraction(imageBuffer, width, height);
-    if (transparentBorderFraction < MIN_TRANSPARENT_BORDER_FRACTION) {
-      reasons.push(
-        `Border is only ${(transparentBorderFraction * 100).toFixed(1)}% transparent — background removal likely failed or the subject fills the whole frame.`,
-      );
+  if (requireTransparency) {
+    if (!metadata.hasAlpha) {
+      reasons.push("Image has no alpha channel — background removal did not produce transparency.");
+    } else {
+      const transparentBorderFraction = await estimateTransparentBorderFraction(imageBuffer, width, height);
+      if (transparentBorderFraction < MIN_TRANSPARENT_BORDER_FRACTION) {
+        reasons.push(
+          `Border is only ${(transparentBorderFraction * 100).toFixed(1)}% transparent — background removal likely failed or the subject fills the whole frame.`,
+        );
+      }
     }
   }
 

@@ -32,9 +32,10 @@ export class TrainedStyleImageProvider implements ImageProvider {
 
   async generate(
     concept: string,
-    _opts: { styleVariant: string; orientation: "vertical" | "horizontal" },
+    opts: { styleVariant: string; orientation: "vertical" | "horizontal"; backgroundMode?: "cutout" | "scene" },
   ): Promise<RawGeneratedImage> {
-    const first = await this.generateOnce(concept);
+    const backgroundMode = opts.backgroundMode ?? "cutout";
+    const first = await this.generateOnce(concept, backgroundMode);
     if (!(await isEffectivelyBlank(first.imageBuffer))) return first;
 
     // Caught on a real render: the model occasionally returns a flat/empty
@@ -43,17 +44,29 @@ export class TrainedStyleImageProvider implements ImageProvider {
     // white box with no indication anything went wrong. One retry before
     // accepting whatever comes back, same discipline as the planner's own
     // one-retry-then-accept pattern elsewhere in this pipeline.
-    const retry = await this.generateOnce(concept);
+    const retry = await this.generateOnce(concept, backgroundMode);
     return retry;
   }
 
-  private async generateOnce(concept: string): Promise<RawGeneratedImage> {
+  private async generateOnce(concept: string, backgroundMode: "cutout" | "scene"): Promise<RawGeneratedImage> {
     fal.config({ credentials: this.apiKey });
 
+    // Caught on a real render batch: every "scene" concept (a ship on the
+    // ocean, a forest, a palace interior) was still being told to render
+    // against a flat cream background, same as a character cutout — the
+    // model then blended the two instructions into a baked-in cream
+    // vignette wash over the real scene, which the flood-fill background
+    // remover (built for a genuinely flat background) couldn't cleanly key
+    // out either. Scene mode asks for the opposite and skips removal
+    // entirely below.
     const prompt =
-      `${this.styleModel.triggerWord}, warm painterly storybook illustration, ${concept}, ` +
-      "FLAT SOLID UNIFORM cream background color only, no vignette, no glow, no gradient, " +
-      "no atmospheric lighting effect, no shading or wash behind the subject, no text, no lettering";
+      backgroundMode === "scene"
+        ? `${this.styleModel.triggerWord}, warm painterly storybook illustration, ${concept}, ` +
+          "a fully rendered illustrated environment filling the entire frame, no flat color background, " +
+          "no vignette, no border, no text, no lettering"
+        : `${this.styleModel.triggerWord}, warm painterly storybook illustration, ${concept}, ` +
+          "FLAT SOLID UNIFORM cream background color only, no vignette, no glow, no gradient, " +
+          "no atmospheric lighting effect, no shading or wash behind the subject, no text, no lettering";
 
     const result = await fal.subscribe("fal-ai/flux-lora", {
       input: {
@@ -71,6 +84,18 @@ export class TrainedStyleImageProvider implements ImageProvider {
 
     const imageResponse = await fetch(image.url);
     const rawBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+    if (backgroundMode === "scene") {
+      const sharp = (await import("sharp")).default;
+      const metadata = await sharp(rawBuffer).metadata();
+      return {
+        imageBuffer: rawBuffer,
+        contentType: "image/png",
+        widthPx: metadata.width ?? 0,
+        heightPx: metadata.height ?? 0,
+        costUsd: COST_PER_IMAGE_USD,
+      };
+    }
 
     // Same background-removal discipline as the library assets — a live
     // one-off is only usable in a composited scene if its background is

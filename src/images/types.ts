@@ -23,6 +23,16 @@ export interface ImageProvider {
   readonly name: ImageProviderName;
   generate(
     concept: string,
-    opts: { styleVariant: string; orientation: "vertical" | "horizontal" },
+    opts: {
+      styleVariant: string;
+      orientation: "vertical" | "horizontal";
+      /** "cutout" (default): a character/prop meant to be composited over
+       * something else — generated against a flat background and run
+       * through background removal for real transparency. "scene": a full
+       * illustrated backdrop (a ship on the ocean, a forest, a palace
+       * interior) shown whole — background removal would strip out the
+       * very thing that was asked for, so it's skipped entirely. */
+      backgroundMode?: "cutout" | "scene";
+    },
   ): Promise<RawGeneratedImage>;
 }

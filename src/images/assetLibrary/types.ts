@@ -1,7 +1,16 @@
 import type { ImageProviderName } from "../types";
 
 export type AssetTier = "shared" | "civics";
-export type AssetRole = "character" | "prop";
+// "scene" (added after a real render batch) is a full illustrated backdrop
+// meant to be shown whole — a ship on the ocean, a forest, a palace
+// interior — as opposed to "character"/"prop", which are cutouts meant to
+// be composited over something else and therefore need a transparent
+// background. Conflating the two made every backdrop-style generation get
+// force-fit through the cutout background-removal step, which only works
+// on a genuinely flat background and produced baked-in vignettes/washes
+// (and, separately, quarantine-blocking transparency failures) on every
+// real scene concept in a batch test.
+export type AssetRole = "character" | "prop" | "scene";
 
 /** Where an asset came from — hand-curated v1 manifest vs. Layer 2 live expansion. */
 export type AssetOrigin = "v1-manifest" | "auto-expanded";
