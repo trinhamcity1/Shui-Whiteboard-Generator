@@ -262,12 +262,25 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
   const panels = ["panel1", "panel2", "panel3", "panel4"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
   const { positions, widthPct } = computePanelLayout(panels.length);
   const isGrid = panels.length === 4;
+  const { width: canvasWidth, height: canvasHeight } = useVideoConfig();
 
   // Panel center, in px, for drawing a reading-order arrow between two
   // panels — used for the single-row layout's straight left-to-right
   // chain, which needs actual coordinates rather than the grid's
   // hand-placed diagonal-wrap arrows.
   const centerXPx = (pos: { left: string }) => (parseFloat(pos.left) / 100 + widthPct / 100 / 2) * 1080;
+
+  // The grid layout's two fixed rows (top:220/top:920) already have a
+  // tuned, working vertical rhythm — left untouched. The single-row
+  // layout is new, and its image height defaulted to "auto" (driven by
+  // the asset's own aspect ratio), which for a near-square generated
+  // image in a narrow single-row column left most of the frame below it
+  // empty — a real dead zone LayoutQA flagged. Fixed height + cover
+  // fills the real available space instead, same resolution already
+  // applied to every other template with this exact bug.
+  const singleRowImgHeight = isGrid
+    ? undefined
+    : Math.min(canvasHeight - (positions[0]?.top ?? 480) - 150, (widthPct / 100) * canvasWidth * 1.7);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -322,7 +335,14 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
                     padding: 10,
                   }}
                 >
-                  <Img src={panel.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />
+                  <Img
+                    src={panel.imageUrl}
+                    style={
+                      singleRowImgHeight
+                        ? { width: "100%", height: singleRowImgHeight, objectFit: "cover", display: "block" }
+                        : { width: "100%", height: "auto", display: "block" }
+                    }
+                  />
                 </div>
               )}
               {panel.label && (
