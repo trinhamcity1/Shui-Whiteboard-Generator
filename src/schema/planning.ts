@@ -96,28 +96,54 @@ Rules:
     library below first). A diagram about courts or law enforcement with a judge or officer available in
     the library and NOT placed beside it is a mistake, not a valid minimal choice — an empty diagram is a
     worse video than one with its relevant characters present.
-  - composition: "composition" object — {"templateId": one of the four below, "title"?: string,
-    "slots": {"<slotName>": {"assetId"?: string, "imageConcept"?: string, "label"?: string,
-    "revealAtSeconds"?: number}}}. A template is a fixed, pre-designed layout — you select a templateId
-    and fill its declared slots, you never invent your own layout or slot names. revealAtSeconds is an
-    OFFSET from this scene's own start (not absolute video time) — set it on a later slot (e.g. 1.5,
-    2.5) so that slot appears only once the narration has moved on to describing it, instead of every
-    slot appearing at once on frame one.
+  - composition: "composition" object — {"templateId": one of the eight below, "title"?: string,
+    "dividerStyle"?: "vs"|"torn" (comparison-2box only), "slots": {"<slotName>": {"assetId"?: string,
+    "imageConcept"?: string, "label"?: string, "revealAtSeconds"?: number, "attachTo"?: string}}}. A
+    template is a fixed, pre-designed layout — you select a templateId and fill its declared slots, you
+    never invent your own layout or slot names. revealAtSeconds is an OFFSET from this scene's own start
+    (not absolute video time) — set it on a later slot (e.g. 1.5, 2.5) so that slot appears only once the
+    narration has moved on to describing it, instead of every slot appearing at once on frame one.
     - "hero-backdrop" slots: backdrop (assetId/imageConcept — a scene-setting illustration), character
       (assetId — a person relevant to the scene), caption (label — a short callout line). Use for one
-      strong establishing/closing visual with a character reacting to it.
+      strong establishing/closing visual with a character reacting to it. If the backdrop asset is a
+      building/structure with a known front-steps anchor (check the library below — an asset with
+      "attachment" anchor data), set character's "attachTo": "backdrop" instead of relying on the
+      default fixed position — the character then stands AT that anchor (e.g. on the steps) rather than
+      floating in a neighboring box. Only set attachTo when the backdrop asset actually has an
+      attachment anchor; otherwise omit it.
     - "pyramid-flanked" slots: tier1, tier2, tier3, ... (label each — SHORT phrases, this is the same
-      shape as a "pyramid" sketchDiagram), leftCharacter/rightCharacter (assetId). This is really just
-      an alternate way to build a flanked pyramid — prefer the plain "sketchDiagram" action type for that
-      instead, since it's simpler; only reach for this templateId if you specifically need it inside a
-      bigger multi-slot composition.
+      shape as a "pyramid" sketchDiagram; assetId optional per tier — a small inset icon inside that
+      tier), leftCharacter/rightCharacter (assetId), topLabel (label — a banner above the pyramid, e.g.
+      "CONSTITUTION"), bottomBanner (label — a footer banner, e.g. a country/organization name). This is
+      really just an alternate way to build a flanked pyramid with banners/insets — prefer the plain
+      "sketchDiagram" action type (which also supports topLabel/bottomBanner/tier insetAssetId) when you
+      don't need it inside a bigger multi-slot composition.
     - "storyboard-4panel" slots: panel1, panel2, panel3, panel4 (assetId/imageConcept + label each, 2-4
       of them, not all 4 required). Use for a multi-step story or example that isn't a clean
       process/cycle (use sketchDiagram flowchart for an actual process instead) — e.g. illustrating three
       different everyday examples of the same idea.
     - "comparison-2box" slots: left, right (assetId/imageConcept + label each). Use for "X vs Y" when
       each side needs an actual illustration, not just text — the existing "comparisonCards" action
-      stays the right choice when text alone is enough.
+      stays the right choice when text alone is enough. dividerStyle "vs" (default) shows a neutral VS
+      badge between the two; "torn" replaces it with a jagged torn-paper seam — use "torn" only when the
+      comparison itself is a rupture/before-after (e.g. "Collapse | Transformation"), not a neutral
+      face-off.
+    - "narrative-3-zone" slots: zone1, zone2, zone3 (assetId/imageConcept + label each, all 3 required).
+      A strict 3-beat narrative read top-to-bottom with a connecting arrow between each — use for a
+      cause -> event -> consequence/decision structure (e.g. "a law is challenged -> the court reviews
+      it -> the court's ruling"). Do not use for anything that isn't genuinely 3 sequential beats.
+    - "central-focal" slots: central (assetId/imageConcept — the one dominant subject), reactor1..4
+      (assetId/imageConcept — smaller figures reacting to it, 1-4 of them, not all 4 required), caption
+      (label). Use for one big event/object with several characters visibly reacting around it — not for
+      an establishing shot (use hero-backdrop) or a neutral illustration (use a plain image action).
+    - "confrontation-mirror" slots: left, right (assetId/imageConcept), caption (label). Use for two
+      opposing groups/forces facing off symmetrically (a standoff, tension, "vs" as conflict rather than
+      comparison) — visually similar to comparison-2box but with no VS badge and a starker, more dramatic
+      read; don't use this for a neutral side-by-side comparison, that's comparison-2box's job.
+    - "group-lineup" slots: person1, person2, ... (assetId/imageConcept each, as many as make sense — 3
+      to a dozen-plus), caption (label). Use for "a crowd" or "everyone who plays a role" framings (e.g.
+      naming several officials/rulers/participants at once) — not for 2-4 individually-important figures
+      (use storyboard-4panel or comparison-2box instead, where each gets more visual weight).
     Use composition SPARINGLY, same discipline as sketchDiagram/illustrations generally — most scenes
     should still be plain typographic components.
 - "decorations": an OPTIONAL array on any action (top-level or inside a composition slot) —
