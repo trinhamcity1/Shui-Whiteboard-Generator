@@ -103,6 +103,9 @@ Rules:
     never invent your own layout or slot names. revealAtSeconds is an OFFSET from this scene's own start
     (not absolute video time) — set it on a later slot (e.g. 1.5, 2.5) so that slot appears only once the
     narration has moved on to describing it, instead of every slot appearing at once on frame one.
+    TWO RULES THAT ARE EASY TO MISS: (1) "templateId" is REQUIRED on every composition object — never
+    write a "composition" without it. (2) EVERY slot value is an object, even a caption-only slot with
+    nothing but a label — WRONG: "caption": "some text". RIGHT: "caption": {"label": "some text"}.
     - "hero-backdrop" slots: backdrop (assetId/imageConcept — a scene-setting illustration), character
       (assetId — a person relevant to the scene), caption (label — a short callout line). Use for one
       strong establishing/closing visual with a character reacting to it. If the backdrop asset is a
@@ -251,6 +254,7 @@ export async function planScenesFromScript(
 
     const textBlock = response.content.find((block) => block.type === "text");
     const rawText = textBlock && "text" in textBlock ? textBlock.text : "";
+    if (process.env.DEBUG_PLANNING_RAW) console.error("[DEBUG_PLANNING_RAW]\n" + rawText + "\n");
 
     let parsed: unknown;
     try {
