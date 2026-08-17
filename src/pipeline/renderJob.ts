@@ -8,6 +8,7 @@ import { checkSceneTiming } from "../render/timing";
 import { uploadRenderToR2 } from "../storage/r2";
 import { resolveSceneDocument, type SceneDocumentRequest } from "./resolveSceneDocument";
 import { inlineRemoteImagesForLocalDev } from "./localDevInlining";
+import { runLayoutQA, type LayoutQALogEntry } from "./layoutQA";
 import type { SceneInputProps } from "../render/Root";
 
 export interface RenderJobResult {
@@ -17,6 +18,7 @@ export interface RenderJobResult {
   uploadUrl?: string;
   uploadError?: string;
   sceneDocumentDebug?: unknown;
+  layoutQaLog?: LayoutQALogEntry[];
 }
 
 /**
@@ -37,6 +39,8 @@ export async function renderSceneDocumentJob(args: {
   audioFileName?: string;
   /** See localDevInlining.ts — opt-in workaround for this sandbox only, never set in production. */
   inlineImagesForLocalDev?: boolean;
+  /** Revision-3 Workstream 4 — runs the vision-LLM layout QA pass over every composed scene before the final render. Opt-in until validated against enough real renders to flip the default. */
+  enableLayoutQA?: boolean;
 }): Promise<RenderJobResult> {
   const { sceneDocument, scenePlanning, imageResolution } = await resolveSceneDocument(args.request);
 
@@ -62,12 +66,25 @@ export async function renderSceneDocumentJob(args: {
   const totalDurationSeconds = Math.max(timingResult.sceneEndSeconds, ttsResult.durationSeconds) + 1;
   const inputProps: SceneInputProps = { sceneDocument, audioFileName, totalDurationSeconds };
 
-  const renderStart = Date.now();
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: "SceneRenderer",
     inputProps,
   });
+
+  let layoutQaLog: LayoutQALogEntry[] | undefined;
+  if (args.enableLayoutQA) {
+    layoutQaLog = await runLayoutQA({
+      sceneDocument,
+      bundleLocation,
+      composition,
+      inputProps,
+      fps: composition.fps,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+  }
+
+  const renderStart = Date.now();
   await renderMedia({
     composition,
     serveUrl: bundleLocation,
@@ -96,6 +113,7 @@ export async function renderSceneDocumentJob(args: {
     imageCacheHits: imageResolution?.cacheHits,
     imageGenerationCostUsd: imageResolution?.costUsd,
     imageProvider: imageResolution?.provider,
+    layoutQaCostUsd: layoutQaLog?.reduce((sum, entry) => sum + entry.costUsd, 0),
   });
 
   return {
@@ -105,5 +123,6 @@ export async function renderSceneDocumentJob(args: {
     uploadUrl,
     uploadError,
     sceneDocumentDebug: sceneDocument,
+    layoutQaLog,
   };
 }

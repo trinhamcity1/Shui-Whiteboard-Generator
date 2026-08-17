@@ -29,6 +29,8 @@ export interface JobCost {
   imageCacheHits?: number;
   imageGenerationCostUsd?: number;
   imageProvider?: "recraft" | "flux" | "trained-style";
+  /** Revision-3 Workstream 4: one vision-LLM critique call (+ one bounded correction, never a re-check) per composed scene. */
+  layoutQaCostUsd?: number;
   renderWallClockSeconds: number;
   renderComputeCostUsd: number;
   totalCostUsd: number;
@@ -44,10 +46,12 @@ export function buildJobCost(args: {
   imageCacheHits?: number;
   imageGenerationCostUsd?: number;
   imageProvider?: "recraft" | "flux" | "trained-style";
+  layoutQaCostUsd?: number;
 }): JobCost {
   const { renderComputeCostUsd } = estimateRenderComputeCost(args.renderWallClockSeconds);
   const scenePlanningCostUsd = args.scenePlanningCostUsd ?? 0;
   const imageGenerationCostUsd = args.imageGenerationCostUsd ?? 0;
+  const layoutQaCostUsd = args.layoutQaCostUsd ?? 0;
   return {
     ttsCharacters: args.ttsCharacters,
     ttsCostUsd: args.ttsCostUsd,
@@ -57,9 +61,10 @@ export function buildJobCost(args: {
     imageCacheHits: args.imageCacheHits,
     imageGenerationCostUsd: args.imageGenerationCostUsd,
     imageProvider: args.imageProvider,
+    layoutQaCostUsd: args.layoutQaCostUsd,
     renderWallClockSeconds: args.renderWallClockSeconds,
     renderComputeCostUsd,
-    totalCostUsd: args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd + imageGenerationCostUsd,
+    totalCostUsd: args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd + imageGenerationCostUsd + layoutQaCostUsd,
   };
 }
 
@@ -82,6 +87,9 @@ export function printJobCost(cost: JobCost, label?: string): void {
     console.log(
       `Images:   ${cost.imagesGenerated ?? 0} generated, ${cost.imageCacheHits ?? 0} cache hits (${cost.imageProvider ?? "?"}) -> $${(cost.imageGenerationCostUsd ?? 0).toFixed(4)}`,
     );
+  }
+  if (cost.layoutQaCostUsd) {
+    console.log(`LayoutQA: -> $${cost.layoutQaCostUsd.toFixed(4)}`);
   }
   console.log(
     `Render:   ${cost.renderWallClockSeconds.toFixed(1)}s wall-clock -> $${cost.renderComputeCostUsd.toFixed(4)} (Cloud Run estimate)`,
