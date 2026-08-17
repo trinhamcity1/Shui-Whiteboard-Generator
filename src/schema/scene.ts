@@ -208,6 +208,20 @@ export const SceneAction = z
     type: SceneActionType,
     atSeconds: z.number().nonnegative(),
     durationSeconds: z.number().positive(),
+    // A verbatim substring of the narration script — the exact words this
+    // action is illustrating, copied character-for-character, never
+    // rendered on screen. atSeconds/durationSeconds above are only the
+    // planner's own pre-TTS estimate; realignSceneTiming (render/timing.ts)
+    // locates this exact text inside ElevenLabs' real per-word timestamps
+    // after TTS and snaps the action onto it. A rate-based estimate (the
+    // prior approach) assumed the planner spaced scenes at a flat words/sec
+    // rate, which real render evidence disproved — durations are authored
+    // by feel, not word count, so the drift compounded unevenly across a
+    // video and dumped itself onto the final scene as a long freeze.
+    // Matching the actual words removes the guess entirely. Optional so a
+    // pre-authored (non-planner) SceneDocument still validates without it —
+    // realignment just falls back to the rate estimate for such an action.
+    coversText: z.string().optional(),
     text: z.string().optional(),
     icon: z.string().optional(),
     items: z.array(z.string()).optional(),

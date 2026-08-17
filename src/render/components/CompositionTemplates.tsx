@@ -456,17 +456,50 @@ const CENTRAL_TOP = 280;
 const CENTRAL_HEIGHT = 700;
 const REACTOR_TOP = CENTRAL_TOP + CENTRAL_HEIGHT + 40;
 const REACTOR_HEIGHT = 320;
-const REACTOR_POSITIONS = [
-  { left: "4%", top: REACTOR_TOP },
-  { left: "76%", top: REACTOR_TOP },
-  { left: "4%", top: REACTOR_TOP + REACTOR_HEIGHT + 30 },
-  { left: "76%", top: REACTOR_TOP + REACTOR_HEIGHT + 30 },
-];
+// A fixed 2x2 grid left position 4 (bottom-right) empty whenever the
+// planner supplied fewer than 4 reactors — a real dead-zone LayoutQA
+// flagged on a real render, since 3 reactors is a common, valid count.
+// 1-3 reactors now lay out as a single centered row (using the row-2
+// space a 2x2 grid would have left empty), sized larger since they no
+// longer share the footprint with a second row; exactly 4 keeps the
+// original 2x2 grid, which is the shape that actually needs it.
+const REACTOR_HEIGHT_SINGLE_ROW = REACTOR_HEIGHT * 1.7;
+
+function computeReactorPositions(count: number): { left: string; top: number }[] {
+  if (count === 4) {
+    return [
+      { left: "4%", top: REACTOR_TOP },
+      { left: "76%", top: REACTOR_TOP },
+      { left: "4%", top: REACTOR_TOP + REACTOR_HEIGHT + 30 },
+      { left: "76%", top: REACTOR_TOP + REACTOR_HEIGHT + 30 },
+    ];
+  }
+  const widthPct = 22;
+  const gapPct = 4;
+  const totalWidthPct = count * widthPct + Math.max(0, count - 1) * gapPct;
+  const startLeftPct = (100 - totalWidthPct) / 2;
+  return Array.from({ length: count }, (_, i) => ({
+    left: `${startLeftPct + i * (widthPct + gapPct)}%`,
+    top: REACTOR_TOP,
+  }));
+}
 
 export function CentralFocalTemplate({ title, slots }: CompositionTemplateProps) {
   const central = slots.central;
   const reactors = ["reactor1", "reactor2", "reactor3", "reactor4"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
   const caption = slots.caption;
+
+  const reactorPositions = computeReactorPositions(reactors.length);
+  const reactorHeight = reactors.length === 4 ? REACTOR_HEIGHT : REACTOR_HEIGHT_SINGLE_ROW;
+  const reactorRows = reactors.length === 4 ? 2 : reactors.length > 0 ? 1 : 0;
+  const contentBottom =
+    reactorRows === 0
+      ? CENTRAL_TOP + CENTRAL_HEIGHT
+      : REACTOR_TOP + reactorRows * reactorHeight + (reactorRows - 1) * 30;
+  // Caption now sits a fixed gap below wherever the real content actually
+  // ends, instead of a flat `bottom: 120` that left a large empty band
+  // whenever fewer reactors (a shorter layout) were present.
+  const captionTop = contentBottom + 40;
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -480,16 +513,16 @@ export function CentralFocalTemplate({ title, slots }: CompositionTemplateProps)
       )}
 
       {reactors.map((reactor, i) => {
-        const pos = REACTOR_POSITIONS[i]!;
+        const pos = reactorPositions[i]!;
         return (
-          <SlotReveal key={i} slot={reactor} style={{ position: "absolute", left: pos.left, top: pos.top, width: "20%", height: REACTOR_HEIGHT }}>
+          <SlotReveal key={i} slot={reactor} style={{ position: "absolute", left: pos.left, top: pos.top, width: reactors.length === 4 ? "20%" : "24%", height: reactorHeight }}>
             <Img src={reactor.imageUrl ?? ""} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
           </SlotReveal>
         );
       })}
 
       {caption?.label && (
-        <SlotReveal slot={caption} style={{ position: "absolute", left: "10%", right: "10%", bottom: 120 }}>
+        <SlotReveal slot={caption} style={{ position: "absolute", left: "10%", right: "10%", top: captionTop }}>
           <div
             style={{
               textAlign: "center",

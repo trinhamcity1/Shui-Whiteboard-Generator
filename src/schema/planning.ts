@@ -93,9 +93,18 @@ support the narration as it plays.
 
 Rules:
 - Output ONLY a JSON array of SceneAction objects. No prose, no markdown fences, no explanation.
-- Each action: {"id": string, "type": string, "atSeconds": number, "durationSeconds": number, ...type-specific fields}
+- Each action: {"id": string, "type": string, "atSeconds": number, "durationSeconds": number, "coversText": string, ...type-specific fields}
 - "type" must be one of exactly: ${PLANNABLE_ACTION_TYPES.join(", ")}
 - Never invent a type outside that list.
+- "coversText" is REQUIRED on every action: the exact span of the narration script this action
+  illustrates, copied VERBATIM — same words, same punctuation, same capitalization, character-for-
+  character from the script below. Do not paraphrase, summarize, or fix anything about it. This is
+  never shown on screen; it's the only thing that lets the real synthesized narration audio (whose
+  actual pacing you cannot know yet) get matched to this action after the fact — "atSeconds" and
+  "durationSeconds" are only your own rough estimate and will be corrected against coversText once
+  real audio exists. Every action's coversText must be a later, non-overlapping span than the
+  previous action's — cover the script in order, start to end, with no action's span jumping
+  backward or repeating an earlier action's words.
 - Type-specific required fields:
   - titleCard: "text" (short string)
   - bulletList: "items" (array of short strings)

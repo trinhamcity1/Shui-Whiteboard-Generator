@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import rough from "roughjs";
-import { AbsoluteFill, Img, continueRender, delayRender } from "remotion";
+import { AbsoluteFill, Img, continueRender, delayRender, useVideoConfig } from "remotion";
 import { SKETCH_COLORS, SKETCH_LINE, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss, waitForSketchFont } from "../sketchStyle";
 import { BannerRibbon } from "../decorations";
 
@@ -109,6 +109,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [handle] = useState(() => delayRender("Loading font + drawing rough.js sketch diagram"));
+  const { height: realCanvasHeight } = useVideoConfig();
 
   // Only non-pyramid diagrams need this — the pyramid's own topLabel sits
   // well above the pyramid body (PYRAMID_TOP_Y - 150), nowhere near the
@@ -120,22 +121,37 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     [tiers],
   );
 
+  // Caught on a real render: a bare flowchart (no flanking character, no
+  // tier insets — a real case, e.g. a short cause-and-effect reasoning
+  // chain) only ever sized its SVG to a minimal fit around
+  // FLOWCHART_BOX_HEIGHT/GAP, then just left the rest of the REAL video
+  // frame (which this component never queried) as blank paper below it —
+  // a 3-tier flowchart used under half the actual canvas height. Box
+  // height/gap now scale to fill the real available vertical space
+  // instead of a fixed per-tier constant, bounded so a many-tier
+  // flowchart doesn't grow absurdly tall or a short one grow absurdly
+  // sparse.
+  const flowchartAvailableHeight = Math.max(0, realCanvasHeight - FLOWCHART_TOP_Y - contentYOffset - 140);
+  const flowchartPerTier = tiers.length > 0 ? flowchartAvailableHeight / tiers.length : 0;
+  const flowchartBoxHeight = Math.min(280, Math.max(FLOWCHART_BOX_HEIGHT, flowchartPerTier * 0.62));
+  const flowchartGap = Math.min(140, Math.max(FLOWCHART_GAP, flowchartPerTier * 0.38));
+
   const flowSteps = useMemo(
     () =>
       tiers.map((tier, i) => {
         const cx = CANVAS_WIDTH / 2;
-        const cy = FLOWCHART_TOP_Y + contentYOffset + i * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + FLOWCHART_BOX_HEIGHT / 2;
+        const cy = FLOWCHART_TOP_Y + contentYOffset + i * (flowchartBoxHeight + flowchartGap) + flowchartBoxHeight / 2;
         return {
           tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! },
-          points: boxPoints(cx, cy, FLOWCHART_BOX_WIDTH, FLOWCHART_BOX_HEIGHT),
+          points: boxPoints(cx, cy, FLOWCHART_BOX_WIDTH, flowchartBoxHeight),
           cx,
           cy,
         };
       }),
-    [tiers, contentYOffset],
+    [tiers, contentYOffset, flowchartBoxHeight, flowchartGap],
   );
   const flowchartCanvasHeight =
-    FLOWCHART_TOP_Y + contentYOffset + tiers.length * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + 120;
+    FLOWCHART_TOP_Y + contentYOffset + tiers.length * (flowchartBoxHeight + flowchartGap) + 120;
 
   const comparisonBoxes = useMemo(() => {
     const pair = tiers.slice(0, 2);

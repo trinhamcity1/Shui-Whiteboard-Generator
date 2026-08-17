@@ -55,7 +55,60 @@ function syntheticWordTimings(count: number): WordTiming[] {
   }));
 }
 
-describe("realignSceneTiming", () => {
+// Deliberately irregular pacing (a real pause before "jumps" and a longer
+// one before "again") — the exact shape of real speech a flat-rate
+// estimate can't see, and the reason coversText-based matching replaced it.
+const IRREGULAR_WORDS: WordTiming[] = [
+  { word: "The", startSeconds: 0.0, endSeconds: 0.3 },
+  { word: "quick", startSeconds: 0.35, endSeconds: 0.7 },
+  { word: "brown", startSeconds: 0.75, endSeconds: 1.1 },
+  { word: "fox", startSeconds: 1.15, endSeconds: 1.3 },
+  { word: "jumps", startSeconds: 1.9, endSeconds: 2.2 }, // pause before this word
+  { word: "over", startSeconds: 2.25, endSeconds: 2.45 },
+  { word: "the", startSeconds: 2.5, endSeconds: 2.6 },
+  { word: "lazy", startSeconds: 2.65, endSeconds: 2.95 },
+  { word: "dog", startSeconds: 3.0, endSeconds: 3.25 },
+  { word: "again", startSeconds: 4.0, endSeconds: 4.5 }, // longer pause before this word
+];
+
+describe("realignSceneTiming (coversText word-span matching)", () => {
+  it("locates each action's exact real timing from its coversText, tracking irregular pacing a flat rate can't", () => {
+    const doc = docWithActions([
+      { id: "a1", type: "titleCard", atSeconds: 0, durationSeconds: 2, text: "Title", coversText: "The quick brown fox" },
+      { id: "a2", type: "titleCard", atSeconds: 2, durationSeconds: 2, text: "Ending", coversText: "jumps over the lazy dog again" },
+    ]);
+    realignSceneTiming(doc, IRREGULAR_WORDS);
+
+    expect(doc.actions[0]!.atSeconds).toBeCloseTo(0.0, 5);
+    expect(doc.actions[0]!.atSeconds + doc.actions[0]!.durationSeconds).toBeCloseTo(1.3, 5);
+    // The real pause before "jumps" (1.3s -> 1.9s) is exactly the kind of
+    // gap a WORDS_PER_SECOND estimate would smear across both scenes
+    // instead of attributing correctly to the second one.
+    expect(doc.actions[1]!.atSeconds).toBeCloseTo(1.9, 5);
+    expect(doc.actions[1]!.atSeconds + doc.actions[1]!.durationSeconds).toBeCloseTo(4.5, 5);
+  });
+
+  it("tolerates a minor word mismatch (voice model expanding a contraction, etc.)", () => {
+    const doc = docWithActions([
+      // "quick" swapped for a word that isn't there — 3 of 4 words still match.
+      { id: "a1", type: "titleCard", atSeconds: 0, durationSeconds: 2, text: "Title", coversText: "The swift brown fox" },
+    ]);
+    realignSceneTiming(doc, IRREGULAR_WORDS);
+    expect(doc.actions[0]!.atSeconds).toBeCloseTo(0.0, 5);
+  });
+
+  it("falls back to the rate estimate for one action when its coversText can't be located at all", () => {
+    const doc = docWithActions([
+      { id: "a1", type: "titleCard", atSeconds: 10, durationSeconds: 4, text: "Title", coversText: "completely unrelated words never spoken" },
+    ]);
+    const wordTimings = syntheticWordTimings(50);
+    realignSceneTiming(doc, wordTimings);
+    // Falls through to the same rate-based math as the no-coversText case below.
+    expect(doc.actions[0]!.atSeconds).toBeCloseTo(wordTimings[25]!.startSeconds, 5);
+  });
+});
+
+describe("realignSceneTiming (rate-based fallback, no coversText)", () => {
   it("snaps an action's timing onto the real per-word timestamps instead of the flat-rate estimate", () => {
     const doc = docWithActions([{ id: "a1", type: "titleCard", atSeconds: 10, durationSeconds: 4, text: "Title" }]);
     const wordTimings = syntheticWordTimings(50);
