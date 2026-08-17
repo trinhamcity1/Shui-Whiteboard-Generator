@@ -29,6 +29,28 @@ export interface ApiKeyRecord {
 
 let cachedDb: Firestore | undefined;
 
+// Set once a real Firestore call has failed for lack of credentials
+// (ADC not configured — the normal case for local/sandbox dev without GCP
+// access). Every asset-library/image-cache lookup already falls back to a
+// local registry on failure, and that per-call try/catch does correctly
+// catch the rejected promise every time — but google-auth-library's
+// underlying metadata-server credential probe can *also* schedule a
+// separate, disconnected retry that rejects later as an unhandled
+// rejection unrelated to any promise we awaited, which crashes the
+// process regardless of our try/catch. Short-circuiting to the local
+// fallback immediately once we know Firestore is unreachable — instead of
+// re-attempting a real network call on every single asset lookup in a
+// scene — collapses many chances at that race down to one.
+let firestoreKnownUnreachable = false;
+
+export function isFirestoreKnownUnreachable(): boolean {
+  return firestoreKnownUnreachable;
+}
+
+export function markFirestoreUnreachable(): void {
+  firestoreKnownUnreachable = true;
+}
+
 function getDb(): Firestore {
   if (cachedDb) return cachedDb;
 

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { createLibraryAsset, type LibraryAssetRecord } from "../../storage/firestore";
+import { createLibraryAsset, isFirestoreKnownUnreachable, markFirestoreUnreachable, type LibraryAssetRecord } from "../../storage/firestore";
 import { listAllLibraryAssets } from "./registryLookup";
 import { appendLocalLibraryAsset } from "./localRegistry";
 import { findSemanticMatch } from "./semanticMatch";
@@ -108,10 +108,15 @@ export async function resolveConceptViaLibrary(
     dominantColor: anchorResult.dominantColor ?? undefined,
   };
 
-  try {
-    await createLibraryAsset(record);
-  } catch {
+  if (isFirestoreKnownUnreachable()) {
     appendLocalLibraryAsset(record);
+  } else {
+    try {
+      await createLibraryAsset(record);
+    } catch {
+      markFirestoreUnreachable();
+      appendLocalLibraryAsset(record);
+    }
   }
 
   return {
