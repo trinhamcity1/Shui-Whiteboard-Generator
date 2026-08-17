@@ -31,6 +31,8 @@ export interface JobCost {
   imageProvider?: "recraft" | "flux" | "trained-style";
   /** Revision-3 Workstream 4: one vision-LLM critique call (+ one bounded correction, never a re-check) per composed scene. */
   layoutQaCostUsd?: number;
+  /** The automated quarantine sweep that promotes new self-expanding-library assets, run after this job if it generated any. */
+  assetPromotionCostUsd?: number;
   renderWallClockSeconds: number;
   renderComputeCostUsd: number;
   totalCostUsd: number;
@@ -47,11 +49,13 @@ export function buildJobCost(args: {
   imageGenerationCostUsd?: number;
   imageProvider?: "recraft" | "flux" | "trained-style";
   layoutQaCostUsd?: number;
+  assetPromotionCostUsd?: number;
 }): JobCost {
   const { renderComputeCostUsd } = estimateRenderComputeCost(args.renderWallClockSeconds);
   const scenePlanningCostUsd = args.scenePlanningCostUsd ?? 0;
   const imageGenerationCostUsd = args.imageGenerationCostUsd ?? 0;
   const layoutQaCostUsd = args.layoutQaCostUsd ?? 0;
+  const assetPromotionCostUsd = args.assetPromotionCostUsd ?? 0;
   return {
     ttsCharacters: args.ttsCharacters,
     ttsCostUsd: args.ttsCostUsd,
@@ -62,9 +66,11 @@ export function buildJobCost(args: {
     imageGenerationCostUsd: args.imageGenerationCostUsd,
     imageProvider: args.imageProvider,
     layoutQaCostUsd: args.layoutQaCostUsd,
+    assetPromotionCostUsd: args.assetPromotionCostUsd,
     renderWallClockSeconds: args.renderWallClockSeconds,
     renderComputeCostUsd,
-    totalCostUsd: args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd + imageGenerationCostUsd + layoutQaCostUsd,
+    totalCostUsd:
+      args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd + imageGenerationCostUsd + layoutQaCostUsd + assetPromotionCostUsd,
   };
 }
 
@@ -90,6 +96,9 @@ export function printJobCost(cost: JobCost, label?: string): void {
   }
   if (cost.layoutQaCostUsd) {
     console.log(`LayoutQA: -> $${cost.layoutQaCostUsd.toFixed(4)}`);
+  }
+  if (cost.assetPromotionCostUsd) {
+    console.log(`Promote:  -> $${cost.assetPromotionCostUsd.toFixed(4)}`);
   }
   console.log(
     `Render:   ${cost.renderWallClockSeconds.toFixed(1)}s wall-clock -> $${cost.renderComputeCostUsd.toFixed(4)} (Cloud Run estimate)`,

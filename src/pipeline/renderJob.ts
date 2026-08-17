@@ -9,6 +9,7 @@ import { uploadRenderToR2 } from "../storage/r2";
 import { resolveSceneDocument, type SceneDocumentRequest } from "./resolveSceneDocument";
 import { inlineRemoteImagesForLocalDev } from "./localDevInlining";
 import { runLayoutQA, type LayoutQALogEntry } from "./layoutQA";
+import { promotePendingAssets } from "../images/assetLibrary/promote";
 import type { SceneInputProps } from "../render/Root";
 
 export interface RenderJobResult {
@@ -19,6 +20,7 @@ export interface RenderJobResult {
   uploadError?: string;
   sceneDocumentDebug?: unknown;
   layoutQaLog?: LayoutQALogEntry[];
+  assetPromotionLog?: string[];
 }
 
 /**
@@ -110,6 +112,27 @@ export async function renderSceneDocumentJob(args: {
     uploadError = (err as Error).message;
   }
 
+  // Only worth the sweep when this job actually generated a new asset —
+  // a pre-authored SceneDocument or an all-cache-hit video adds nothing
+  // to review. Runs after the video is already rendered/uploaded so a
+  // promotion failure can never cost the user their finished video; the
+  // whole thing is wrapped defensively for the same reason. Sweeps every
+  // pending asset in the library, not just this job's own — cheap (a
+  // fraction of a cent per asset) and it's how a public-facing version of
+  // this app would keep the shared library current from real usage
+  // instead of needing someone to run this by hand.
+  let assetPromotionCostUsd: number | undefined;
+  let assetPromotionLog: string[] | undefined;
+  if ((imageResolution?.imagesGenerated ?? 0) > 0) {
+    try {
+      const promotion = await promotePendingAssets({ apiKey: process.env.ANTHROPIC_API_KEY });
+      assetPromotionCostUsd = promotion.costUsd;
+      assetPromotionLog = promotion.log;
+    } catch (err) {
+      assetPromotionLog = [`Asset promotion sweep failed: ${(err as Error).message}`];
+    }
+  }
+
   const jobCost = buildJobCost({
     ttsCharacters: ttsResult.characters,
     ttsCostUsd: ttsResult.costUsd,
@@ -121,6 +144,7 @@ export async function renderSceneDocumentJob(args: {
     imageGenerationCostUsd: imageResolution?.costUsd,
     imageProvider: imageResolution?.provider,
     layoutQaCostUsd: layoutQaLog?.reduce((sum, entry) => sum + entry.costUsd, 0),
+    assetPromotionCostUsd,
   });
 
   return {
@@ -131,5 +155,6 @@ export async function renderSceneDocumentJob(args: {
     uploadError,
     sceneDocumentDebug: sceneDocument,
     layoutQaLog,
+    assetPromotionLog,
   };
 }
