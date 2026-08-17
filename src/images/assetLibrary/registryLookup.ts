@@ -7,6 +7,7 @@ export interface ResolvedAsset {
   imageUrl: string;
   widthPx: number;
   heightPx: number;
+  anchors?: Array<{ xFraction: number; yFraction: number; kind: "label" | "inset" | "attachment" }>;
 }
 
 let localV1RegistryCache: Map<string, LibraryAssetRecord> | undefined;
@@ -34,14 +35,16 @@ function loadLocalV1Registry(): Map<string, LibraryAssetRecord> {
 export async function resolveAssetId(assetId: string): Promise<ResolvedAsset | null> {
   try {
     const record = await getLibraryAsset(assetId);
-    if (record) return { imageUrl: record.imageUrl, widthPx: record.widthPx, heightPx: record.heightPx };
+    if (record) return { imageUrl: record.imageUrl, widthPx: record.widthPx, heightPx: record.heightPx, anchors: record.anchors };
   } catch {
     // Firestore unreachable (no GCP credentials in this environment) — fall through to the local registry.
   }
   const v1 = loadLocalV1Registry().get(assetId);
-  if (v1) return { imageUrl: v1.imageUrl, widthPx: v1.widthPx, heightPx: v1.heightPx };
+  if (v1) return { imageUrl: v1.imageUrl, widthPx: v1.widthPx, heightPx: v1.heightPx, anchors: v1.anchors };
   const autoExpanded = listLocalAutoExpandedAssets().find((r) => r.id === assetId);
-  return autoExpanded ? { imageUrl: autoExpanded.imageUrl, widthPx: autoExpanded.widthPx, heightPx: autoExpanded.heightPx } : null;
+  return autoExpanded
+    ? { imageUrl: autoExpanded.imageUrl, widthPx: autoExpanded.widthPx, heightPx: autoExpanded.heightPx, anchors: autoExpanded.anchors }
+    : null;
 }
 
 /**

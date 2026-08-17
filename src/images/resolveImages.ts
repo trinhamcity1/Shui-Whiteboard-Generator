@@ -18,6 +18,8 @@ interface AssetIdTarget {
   assetId: string;
   label: string; // for a clear error message
   setUrl: (url: string) => void;
+  setAttachmentAnchor?: (anchor: { xFraction: number; yFraction: number }) => void;
+  setDimensions?: (widthPx: number, heightPx: number) => void;
 }
 
 interface ConceptTarget {
@@ -73,6 +75,14 @@ function collectAssetIdTargets(sceneDocument: SceneDocument): AssetIdTarget[] {
             assetId: slot.assetId,
             label: `composition slot "${slotName}" (action "${action.id}")`,
             setUrl: (url) => (slot.imageUrl = url),
+            // Workstream 3 item 3: only relevant if some other slot in this
+            // composition actually attaches to this one, but resolving is
+            // free (already-fetched registry data), so always set it.
+            setAttachmentAnchor: (anchor) => (slot.attachmentAnchor = anchor),
+            setDimensions: (widthPx, heightPx) => {
+              slot.imageWidthPx = widthPx;
+              slot.imageHeightPx = heightPx;
+            },
           });
         }
       }
@@ -136,6 +146,11 @@ export async function resolveImages(
       throw new Error(`assetId "${target.assetId}" (${target.label}) was not found in the asset library registry.`);
     }
     target.setUrl(resolved.imageUrl);
+    if (target.setDimensions) target.setDimensions(resolved.widthPx, resolved.heightPx);
+    const attachmentAnchor = resolved.anchors?.find((a) => a.kind === "attachment");
+    if (attachmentAnchor && target.setAttachmentAnchor) {
+      target.setAttachmentAnchor({ xFraction: attachmentAnchor.xFraction, yFraction: attachmentAnchor.yFraction });
+    }
   }
 
   const pending = collectConceptTargets(sceneDocument);

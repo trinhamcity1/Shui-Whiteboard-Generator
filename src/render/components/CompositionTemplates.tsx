@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Img, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
 import { SketchDiagram } from "./SketchDiagram";
-import { SKETCH_COLORS, SKETCH_FONT_FAMILY, sketchFontFaceCss } from "../sketchStyle";
+import { SKETCH_COLORS, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss } from "../sketchStyle";
 import { DecorationLayer } from "../decorations";
 import type { CompositionSlot } from "../../schema/scene";
 
@@ -60,6 +60,36 @@ function applyLayoutAdjustment(style: React.CSSProperties, slot: CompositionSlot
   } as React.CSSProperties;
 }
 
+/** Workstream 3 item 3 — when a slot declares `attachTo: "otherSlotName"`
+ * and that other slot resolved an "attachment" anchor (e.g. a building's
+ * front steps), positions this slot at that anchor instead of a fixed
+ * spot: "a character standing on the steps" rather than "a character in a
+ * neighboring box." Mirrors HeroBackdropTemplate's own fixed backdrop box
+ * (left 10%, top 220, width 80%) since that's the only geometry the
+ * anchor's 0-1 fractions can be resolved against. Returns null (falls
+ * back to the template's normal fixed position) if attachTo isn't set, or
+ * the referenced slot has no attachment anchor / pixel dimensions yet. */
+function resolveAttachmentStyle(
+  slots: Record<string, CompositionSlot>,
+  slot: CompositionSlot | undefined,
+  canvasWidth: number,
+): React.CSSProperties | null {
+  if (!slot?.attachTo) return null;
+  const target = slots[slot.attachTo];
+  if (!target?.attachmentAnchor || !target.imageWidthPx || !target.imageHeightPx) return null;
+
+  const backdropLeft = canvasWidth * 0.1;
+  const backdropWidth = canvasWidth * 0.8;
+  const backdropHeight = backdropWidth * (target.imageHeightPx / target.imageWidthPx);
+  const backdropTop = 220;
+
+  const anchorX = backdropLeft + target.attachmentAnchor.xFraction * backdropWidth;
+  const anchorY = backdropTop + target.attachmentAnchor.yFraction * backdropHeight;
+  const characterHeight = backdropHeight * SKETCH_LAYOUT.characterToBuildingHeightRatio;
+
+  return { position: "absolute", left: anchorX, top: anchorY - characterHeight, height: characterHeight };
+}
+
 function SlotReveal({
   slot,
   style,
@@ -99,11 +129,18 @@ function TitleHeading({ title }: { title?: string }) {
   );
 }
 
-/** One backdrop image, one character composited over it, one caption banner. */
+/** One backdrop image, one character composited over it, one caption banner.
+ * The character can either sit at its own fixed spot (default) or, via
+ * `attachTo: "backdrop"`, stand at the backdrop asset's detected
+ * attachment anchor — Workstream 3 item 3. */
 export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps) {
   const backdrop = slots.backdrop;
   const character = slots.character;
   const caption = slots.caption;
+  const { width: canvasWidth } = useVideoConfig();
+
+  const attachmentStyle = resolveAttachmentStyle(slots, character, canvasWidth);
+  const characterStyle: React.CSSProperties = attachmentStyle ?? { position: "absolute", right: 60, top: 900, height: 500, width: 400 };
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -117,8 +154,15 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
       )}
 
       {character?.imageUrl && (
-        <SlotReveal slot={character} style={{ position: "absolute", right: 60, top: 900, height: 500, width: 400 }}>
-          <Img src={character.imageUrl} style={{ height: "100%", width: "auto", display: "block", marginLeft: "auto" }} />
+        <SlotReveal slot={character} style={characterStyle}>
+          <Img
+            src={character.imageUrl}
+            style={
+              attachmentStyle
+                ? { height: "100%", width: "auto", display: "block", transform: "translateX(-50%)" }
+                : { height: "100%", width: "auto", display: "block", marginLeft: "auto" }
+            }
+          />
         </SlotReveal>
       )}
 

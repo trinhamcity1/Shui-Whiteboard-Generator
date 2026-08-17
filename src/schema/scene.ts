@@ -146,6 +146,23 @@ export const CompositionSlotSchema = z.object({
       scaleMultiplier: z.number().positive().optional(),
     })
     .optional(),
+  // Workstream 3 item 3 — author-settable: the name of another slot in the
+  // same composition whose asset has a detected "attachment" anchor (e.g.
+  // a building's front steps). When set, a template that supports it
+  // positions this slot AT that anchor instead of its own fixed position —
+  // "a character standing on the steps" instead of "a character floating
+  // in a neighboring box." A template with no attachment support, or a
+  // referenced slot with no attachment anchor, just ignores it.
+  attachTo: z.string().optional(),
+  // Populated by resolveImages from the referenced assetId's registry
+  // entry, never author-supplied — same discipline as imageUrl.
+  attachmentAnchor: z.object({ xFraction: z.number(), yFraction: z.number() }).optional(),
+  // Populated by resolveImages alongside imageUrl — the asset's natural
+  // pixel size, needed to convert attachmentAnchor's 0-1 fractions into an
+  // absolute position once this slot's image is scaled to fit its box
+  // (see applyAttachment in CompositionTemplates.tsx).
+  imageWidthPx: z.number().optional(),
+  imageHeightPx: z.number().optional(),
 });
 export type CompositionSlot = z.infer<typeof CompositionSlotSchema>;
 
