@@ -46,7 +46,7 @@ const TIER_HEIGHT = 100;
 const TOP_WIDTH = 260;
 const BOTTOM_WIDTH = 620;
 
-const FLOWCHART_BOX_WIDTH = 760;
+const FLOWCHART_BOX_WIDTH = 860;
 const FLOWCHART_BOX_HEIGHT = 130;
 const FLOWCHART_GAP = 70;
 const FLOWCHART_TOP_Y = 180;
@@ -133,7 +133,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   // sparse.
   const flowchartAvailableHeight = Math.max(0, realCanvasHeight - FLOWCHART_TOP_Y - contentYOffset - 140);
   const flowchartPerTier = tiers.length > 0 ? flowchartAvailableHeight / tiers.length : 0;
-  const flowchartBoxHeight = Math.min(280, Math.max(FLOWCHART_BOX_HEIGHT, flowchartPerTier * 0.62));
+  const flowchartBoxHeight = Math.min(340, Math.max(FLOWCHART_BOX_HEIGHT, flowchartPerTier * 0.68));
   const flowchartGap = Math.min(140, Math.max(FLOWCHART_GAP, flowchartPerTier * 0.38));
 
   const flowSteps = useMemo(

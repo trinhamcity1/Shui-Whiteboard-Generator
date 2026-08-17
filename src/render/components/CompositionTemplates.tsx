@@ -225,18 +225,49 @@ export function PyramidFlankedTemplate({ title, slots }: CompositionTemplateProp
   );
 }
 
-const PANEL_POSITIONS = [
+const PANEL_GRID_POSITIONS = [
   { left: "6%", top: 220 },
   { left: "52%", top: 220 },
   { left: "6%", top: 920 },
   { left: "52%", top: 920 },
 ];
 
-/** Up to 4 image+caption panels in a 2x2 grid, connected by arrows in
- * reading order (1→2→3→4) — a real multi-beat visual, not a wall of
- * assets shown all at once. */
+// A fixed 2x2 grid left position 4 (bottom-right) empty whenever fewer
+// than 4 panels were supplied — a real dead-zone LayoutQA flagged on a
+// real render (3 panels is a common, valid count). 1-3 panels now lay out
+// as a single centered row instead, using the vertical space a missing
+// second row would have left empty; exactly 4 keeps the original grid.
+function computePanelLayout(count: number): { positions: { left: string; top: number }[]; widthPct: number } {
+  if (count === 4 || count === 0) return { positions: PANEL_GRID_POSITIONS, widthPct: 42 };
+  const singleRowTop = 480;
+  if (count <= 2) {
+    return { positions: [{ left: "6%", top: singleRowTop }, { left: "52%", top: singleRowTop }].slice(0, count), widthPct: 42 };
+  }
+  // 3 panels: narrower than the grid's 42% so all three fit in one row.
+  const widthPct = 29;
+  const gapPct = 3;
+  const totalWidthPct = count * widthPct + (count - 1) * gapPct;
+  const startLeftPct = (100 - totalWidthPct) / 2;
+  return {
+    positions: Array.from({ length: count }, (_, i) => ({ left: `${startLeftPct + i * (widthPct + gapPct)}%`, top: singleRowTop })),
+    widthPct,
+  };
+}
+
+/** Up to 4 image+caption panels, connected by arrows in reading order — a
+ * real multi-beat visual, not a wall of assets shown all at once. Exactly
+ * 4 panels lay out as a 2x2 grid; fewer lay out as a single centered row
+ * (see computePanelLayout). */
 export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplateProps) {
   const panels = ["panel1", "panel2", "panel3", "panel4"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
+  const { positions, widthPct } = computePanelLayout(panels.length);
+  const isGrid = panels.length === 4;
+
+  // Panel center, in px, for drawing a reading-order arrow between two
+  // panels — used for the single-row layout's straight left-to-right
+  // chain, which needs actual coordinates rather than the grid's
+  // hand-placed diagonal-wrap arrows.
+  const centerXPx = (pos: { left: string }) => (parseFloat(pos.left) / 100 + widthPct / 100 / 2) * 1080;
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -249,16 +280,38 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
             <path d="M0,0 L6,3 L0,6 Z" fill={SKETCH_COLORS.accentArrow} />
           </marker>
         )}
-        {/* 1→2 (horizontal), 2→3 (diagonal wrap), 3→4 (horizontal) — reading order across the 2x2 grid. */}
-        {panels.length > 1 && <line x1={486} y1={430} x2={572} y2={430} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
-        {panels.length > 2 && <line x1={756} y1={640} x2={216} y2={920} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
-        {panels.length > 3 && <line x1={486} y1={1130} x2={572} y2={1130} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
+        {isGrid ? (
+          // 1→2 (horizontal), 2→3 (diagonal wrap), 3→4 (horizontal) — reading order across the 2x2 grid.
+          <>
+            {panels.length > 1 && <line x1={486} y1={430} x2={572} y2={430} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
+            {panels.length > 2 && <line x1={756} y1={640} x2={216} y2={920} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
+            {panels.length > 3 && <line x1={486} y1={1130} x2={572} y2={1130} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
+          </>
+        ) : (
+          // Single row — a straight left-to-right chain between each panel's actual center.
+          positions.slice(0, -1).map((pos, i) => {
+            const next = positions[i + 1]!;
+            const y = pos.top + 300;
+            return (
+              <line
+                key={i}
+                x1={centerXPx(pos) + (widthPct / 100) * 1080 * 0.55}
+                y1={y}
+                x2={centerXPx(next) - (widthPct / 100) * 1080 * 0.55}
+                y2={y}
+                stroke={SKETCH_COLORS.accentArrow}
+                strokeWidth={5}
+                markerEnd="url(#storyboard-arrowhead)"
+              />
+            );
+          })
+        )}
       </svg>
 
       {panels.map((panel, i) => {
-        const pos = PANEL_POSITIONS[i]!;
+        const pos = positions[i]!;
         return (
-          <SlotReveal key={i} slot={panel} style={{ position: "absolute", left: pos.left, top: pos.top, width: "42%" }}>
+          <SlotReveal key={i} slot={panel} style={{ position: "absolute", left: pos.left, top: pos.top, width: `${widthPct}%` }}>
             <div>
               {panel.imageUrl && (
                 <div
@@ -444,15 +497,20 @@ export function Narrative3ZoneTemplate({ title, slots }: CompositionTemplateProp
  * "reacting figure" images scattered around its base, all implicitly
  * facing inward toward the central event.
  *
- * Both the central slot and each reactor slot use a FIXED-height box with
- * objectFit: "contain" rather than width-driven auto-height sizing — a
- * real dead-zone bug was caught rendering this template's own test: a
+ * Both the central slot and each reactor slot use a FIXED-height box —
+ * a real dead-zone bug was caught rendering this template's own test: a
  * landscape-oriented central asset (a wide building) only filled ~380px
  * of a nominally 700px-tall region, leaving a large empty gap before the
  * reactors below (which were positioned assuming the tallest case). A
  * fixed box makes the layout's vertical footprint predictable regardless
- * of which asset's aspect ratio lands in a given slot. */
-const CENTRAL_TOP = 280;
+ * of which asset's aspect ratio lands in a given slot. That first fix
+ * used objectFit "contain", which still let a mismatched aspect ratio
+ * leave empty space INSIDE its own box — a real render later flagged
+ * exactly that as its own dead zone. Both slots now use "cover" instead
+ * (the same crop-to-fill resolution already applied to
+ * Comparison2BoxTemplate/ConfrontationMirrorTemplate), which guarantees
+ * the box is actually filled at the cost of some edge cropping. */
+const CENTRAL_TOP = 220;
 const CENTRAL_HEIGHT = 700;
 const REACTOR_TOP = CENTRAL_TOP + CENTRAL_HEIGHT + 40;
 const REACTOR_HEIGHT = 320;
@@ -508,7 +566,7 @@ export function CentralFocalTemplate({ title, slots }: CompositionTemplateProps)
 
       {central?.imageUrl && (
         <SlotReveal slot={central} style={{ position: "absolute", left: "15%", top: CENTRAL_TOP, width: "70%", height: CENTRAL_HEIGHT }}>
-          <Img src={central.imageUrl} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          <Img src={central.imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </SlotReveal>
       )}
 
@@ -516,7 +574,7 @@ export function CentralFocalTemplate({ title, slots }: CompositionTemplateProps)
         const pos = reactorPositions[i]!;
         return (
           <SlotReveal key={i} slot={reactor} style={{ position: "absolute", left: pos.left, top: pos.top, width: reactors.length === 4 ? "20%" : "24%", height: reactorHeight }}>
-            <Img src={reactor.imageUrl ?? ""} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            <Img src={reactor.imageUrl ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </SlotReveal>
         );
       })}
