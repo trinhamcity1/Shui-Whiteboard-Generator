@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import rough from "roughjs";
 import { AbsoluteFill, Img, continueRender, delayRender } from "remotion";
 import { SKETCH_COLORS, SKETCH_LINE, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss, waitForSketchFont } from "../sketchStyle";
+import { BannerRibbon } from "../decorations";
 
 /**
  * Started as a proof-of-concept for the amendment §5 sketchDiagram action
@@ -54,20 +55,6 @@ const COMPARISON_BOX_WIDTH = 420;
 const COMPARISON_BOX_HEIGHT = 420;
 const COMPARISON_TOP_Y = 220;
 const COMPARISON_CANVAS_HEIGHT = 800;
-
-/** A tapered ribbon-banner hexagon (pointed left/right ends), not a plain rectangle. */
-function ribbonPoints(x0: number, y0: number, x1: number, y1: number): [number, number][] {
-  const notch = (x1 - x0) * SKETCH_LAYOUT.ribbonNotchRatio;
-  const yc = (y0 + y1) / 2;
-  return [
-    [x0 + notch, y0],
-    [x1 - notch, y0],
-    [x1, yc],
-    [x1 - notch, y1],
-    [x0 + notch, y1],
-    [x0, yc],
-  ];
-}
 
 function tierPolygon(index: number, total: number) {
   const wTop = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * index) / total;
@@ -245,26 +232,6 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         tierLayout.forEach(({ tier, points }, i) => drawBox(points, tier.color, 100 + i));
       }
 
-      if (topLabel) {
-        const cx = CANVAS_WIDTH / 2;
-        const labelTopY = diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : 60;
-        const points = ribbonPoints(cx - 150, labelTopY, cx + 150, labelTopY + 100);
-        drawBox(points, SKETCH_COLORS.panelFill, 999);
-      }
-
-      if (bottomBanner) {
-        const cx = CANVAS_WIDTH / 2;
-        const bannerY = anchorBaseY + 30;
-        const points = ribbonPoints(cx - 320, bannerY, cx + 320, bannerY + 70);
-        drawBox(points, SKETCH_COLORS.panelFill, 1000);
-      }
-
-      if (diagramType === "comparison" && comparisonBoxes.length === 2) {
-        const cx = CANVAS_WIDTH / 2;
-        const cy = COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2;
-        drawBox(ribbonPoints(cx - 60, cy - 35, cx + 60, cy + 35), SKETCH_COLORS.panelFill, 1050);
-      }
-
       // Pyramid keeps its original connecting arrow to the right-hand
       // character — unchanged from the first-approved prototype.
       if (diagramType === "pyramid") {
@@ -303,6 +270,33 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       </div>
 
       <svg ref={svgRef} width={CANVAS_WIDTH} height={canvasHeight} style={{ position: "absolute", left: 0, top: 0 }} />
+
+      {/* Revision-3 Workstream 3 item 4: title/footer panels reuse the
+          shared BannerRibbon decoration instead of a second hand-rolled
+          ribbon-polygon implementation. Rendered in its own <svg>, after
+          the imperative canvas above, so it paints on top the same way
+          the old inline drawBox(ribbonPoints(...)) calls did. */}
+      <svg width={CANVAS_WIDTH} height={canvasHeight} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
+        {topLabel && (
+          <BannerRibbon
+            x={CANVAS_WIDTH / 2 - 150}
+            y={diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : 60}
+            width={300}
+            height={100}
+            instant
+          />
+        )}
+        {bottomBanner && <BannerRibbon x={CANVAS_WIDTH / 2 - 320} y={anchorBaseY + 30} width={640} height={70} instant />}
+        {diagramType === "comparison" && comparisonBoxes.length === 2 && (
+          <BannerRibbon
+            x={CANVAS_WIDTH / 2 - 60}
+            y={COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2 - 35}
+            width={120}
+            height={70}
+            instant
+          />
+        )}
+      </svg>
 
       {topLabel && (
         <div
