@@ -68,7 +68,7 @@ export async function runQuarantineCheck(
 
   const apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (apiKey) {
-    const styleCheck = await runStyleSelfCheck(imageBuffer, apiKey, opts.model);
+    const styleCheck = await runStyleSelfCheck(imageBuffer, apiKey, requireTransparency, opts.model);
     costUsd += styleCheck.costUsd;
     if (!styleCheck.passed) reasons.push(styleCheck.reason ?? "Style self-check failed.");
   }
@@ -105,13 +105,23 @@ async function estimateTransparentBorderFraction(buffer: Buffer, width: number, 
 async function runStyleSelfCheck(
   imageBuffer: Buffer,
   apiKey: string,
+  requireTransparency: boolean,
   model?: string,
 ): Promise<{ passed: boolean; reason?: string; costUsd: number }> {
   const client = new Anthropic({ apiKey });
-  const system = `You are a quality gate for a whiteboard-video illustration library. Every asset should be a
+  const system = requireTransparency
+    ? `You are a quality gate for a whiteboard-video illustration library. Every asset should be a
 clean warm painterly storybook-style illustration on a transparent background, with no baked-in
 text/lettering/watermark, no obvious rendering artifacts (garbled shapes, extra limbs, melted
 features), and no leftover background wash or vignette. Respond with ONLY a JSON object:
+{"passed": boolean, "reason": string | null} — reason explains a failure in one short sentence,
+null if passed.`
+    : `You are a quality gate for a whiteboard-video illustration library. This asset is a full
+illustrated SCENE/backdrop meant to be shown whole (not a cutout on a transparent background) —
+do NOT flag it for having a real background, that's expected and correct here. It should be a
+clean warm painterly storybook-style illustration filling the frame, with no baked-in
+text/lettering/watermark and no obvious rendering artifacts (garbled shapes, extra limbs, melted
+features, nonsensical geometry). Respond with ONLY a JSON object:
 {"passed": boolean, "reason": string | null} — reason explains a failure in one short sentence,
 null if passed.`;
 

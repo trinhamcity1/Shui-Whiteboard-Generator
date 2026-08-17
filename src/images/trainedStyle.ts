@@ -86,10 +86,18 @@ export class TrainedStyleImageProvider implements ImageProvider {
     const rawBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
     if (backgroundMode === "scene") {
+      // fal.ai doesn't guarantee PNG bytes back just because we didn't ask
+      // for a specific format — a real response came back as JPEG here and
+      // crashed the later vision quality-check call, which trusts the
+      // declared contentType. The cutout path never hit this because
+      // removeFlatBackground always re-encodes through sharp's .png() on
+      // its way out; normalize here the same way instead of trusting
+      // whatever fal.ai actually sent.
       const sharp = (await import("sharp")).default;
-      const metadata = await sharp(rawBuffer).metadata();
+      const pngBuffer = await sharp(rawBuffer).png().toBuffer();
+      const metadata = await sharp(pngBuffer).metadata();
       return {
-        imageBuffer: rawBuffer,
+        imageBuffer: pngBuffer,
         contentType: "image/png",
         widthPx: metadata.width ?? 0,
         heightPx: metadata.height ?? 0,

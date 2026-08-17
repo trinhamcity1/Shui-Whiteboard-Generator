@@ -23,25 +23,32 @@ async function main() {
 
   for (const asset of pending) {
     process.stdout.write(`  ${asset.id}... `);
-    const imageResponse = await fetch(asset.imageUrl);
-    const buffer = Buffer.from(await imageResponse.arrayBuffer());
+    try {
+      const imageResponse = await fetch(asset.imageUrl);
+      const buffer = Buffer.from(await imageResponse.arrayBuffer());
 
-    const result = await runQuarantineCheck(buffer, { requireTransparency: asset.role !== "scene" });
-    totalCost += result.costUsd;
+      const result = await runQuarantineCheck(buffer, { requireTransparency: asset.role !== "scene" });
+      totalCost += result.costUsd;
 
-    if (result.passed) {
-      updateLocalLibraryAsset(asset.id, { quarantineStatus: "promoted" });
-      try {
-        const remote = await getLibraryAsset(asset.id);
-        if (!remote) await createLibraryAsset({ ...asset, quarantineStatus: "promoted" });
-      } catch {
-        // Firestore unreachable — the local registry update above is the
-        // real write in this environment.
+      if (result.passed) {
+        updateLocalLibraryAsset(asset.id, { quarantineStatus: "promoted" });
+        try {
+          const remote = await getLibraryAsset(asset.id);
+          if (!remote) await createLibraryAsset({ ...asset, quarantineStatus: "promoted" });
+        } catch {
+          // Firestore unreachable — the local registry update above is the
+          // real write in this environment.
+        }
+        promoted++;
+        console.log("promoted");
+      } else {
+        console.log(`still pending — ${result.reasons.join(" ")}`);
       }
-      promoted++;
-      console.log("promoted");
-    } else {
-      console.log(`still pending — ${result.reasons.join(" ")}`);
+    } catch (err) {
+      // One malformed/unreachable asset shouldn't abort review of every
+      // other pending asset in the batch — leave it pending and move on,
+      // same as a normal quarantine-check failure.
+      console.log(`still pending — check failed: ${(err as Error).message}`);
     }
   }
 
