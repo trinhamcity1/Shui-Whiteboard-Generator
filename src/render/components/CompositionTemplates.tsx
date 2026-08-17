@@ -3,7 +3,7 @@ import { AbsoluteFill, Img, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
 import { SketchDiagram } from "./SketchDiagram";
 import { SKETCH_COLORS, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss } from "../sketchStyle";
-import { DecorationLayer } from "../decorations";
+import { DecorationLayer, TornPaperEdge, Arrow } from "../decorations";
 import type { CompositionSlot } from "../../schema/scene";
 
 /**
@@ -201,7 +201,7 @@ export function PyramidFlankedTemplate({ title, slots }: CompositionTemplateProp
   const tierEntries = Object.entries(slots)
     .filter(([key]) => key.startsWith("tier"))
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-    .map(([, slot]) => ({ label: slot.label ?? "" }))
+    .map(([, slot]) => ({ label: slot.label ?? "", insetSrc: slot.imageUrl }))
     .filter((t) => t.label.length > 0);
 
   return (
@@ -209,6 +209,13 @@ export function PyramidFlankedTemplate({ title, slots }: CompositionTemplateProp
       <SketchDiagram
         diagramType="pyramid"
         title={title ?? ""}
+        // Revision-3 WS5 pyramid-flanked upgrade: topLabel/bottomBanner
+        // slots (rendered by SketchDiagram as WS2 BannerRibbon panels, per
+        // the WS3 item-4 refactor) and each tierN slot's own resolved
+        // imageUrl (a tier-inset icon, per WS3 item 2) — previously wired
+        // into SketchDiagram's props but never actually reached from here.
+        topLabel={slots.topLabel?.label}
+        bottomBanner={slots.bottomBanner?.label}
         tiers={tierEntries.length > 0 ? tierEntries : [{ label: "" }]}
         leftCharacterSrc={slots.leftCharacter?.imageUrl}
         rightCharacterSrc={slots.rightCharacter?.imageUrl}
@@ -290,9 +297,10 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
 /** Two illustrated boxes side by side with a VS divider — for "X vs Y"
  * content that needs actual images, not just text (the existing
  * comparisonCards action stays the right choice for text-only compare). */
-export function Comparison2BoxTemplate({ title, slots }: CompositionTemplateProps) {
+export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: CompositionTemplateProps & { dividerStyle?: "vs" | "torn" }) {
   const left = slots.left;
   const right = slots.right;
+  const { width: canvasWidth } = useVideoConfig();
 
   const boxStyle: React.CSSProperties = {
     border: `3px solid ${SKETCH_COLORS.ink}`,
@@ -331,28 +339,289 @@ export function Comparison2BoxTemplate({ title, slots }: CompositionTemplateProp
         </SlotReveal>
       )}
 
+      {dividerStyle === "torn" ? (
+        // WS5 comparison-2box upgrade — the reference corpus's "Collapse |
+        // Transformation" treatment: a jagged torn-paper seam instead of a
+        // neutral VS badge, for a comparison that reads as a rupture.
+        // TornPaperEdge draws teeth along its own top edge with a filled
+        // body below; rotating that strip 90° about the divider's center
+        // turns it into a vertical seam between the two boxes.
+        <svg width={canvasWidth} height={920} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
+          <g transform={`rotate(90, ${canvasWidth / 2}, 460)`}>
+            <TornPaperEdge x={canvasWidth / 2 - 150} y={420} width={300} height={80} instant />
+          </g>
+        </svg>
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: 460,
+            transform: "translate(-50%, -50%)",
+            width: 90,
+            height: 90,
+            borderRadius: "50%",
+            border: `3px solid ${SKETCH_COLORS.ink}`,
+            background: SKETCH_COLORS.panelFill,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: SKETCH_FONT_FAMILY,
+            fontSize: 32,
+            color: SKETCH_COLORS.ink,
+          }}
+        >
+          VS
+        </div>
+      )}
+    <SlotDecorations slots={slots} />
+    </AbsoluteFill>
+  );
+}
+
+/** Reverse-engineered from the reference corpus's Judicial Review frame:
+ * scene -> consequence -> decision, read top-to-bottom, each zone an
+ * image + caption connected to the next by a downward arrow — a real
+ * narrative sequence, not a grid of unrelated panels (Storyboard4Panel's
+ * reading order is left-to-right/2x2, wrong shape for a 3-beat story). */
+const ZONE_TOP = [220, 800, 1380];
+const ZONE_IMG_HEIGHT = 380;
+
+export function Narrative3ZoneTemplate({ title, slots }: CompositionTemplateProps) {
+  const { width: canvasWidth } = useVideoConfig();
+  const zones = ["zone1", "zone2", "zone3"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
+      <style>{sketchFontFaceCss}</style>
+      <TitleHeading title={title} />
+
+      <svg width={canvasWidth} height={1920} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
+        {zones.length > 1 && (
+          <Arrow from={{ x: canvasWidth / 2, y: ZONE_TOP[0]! + ZONE_IMG_HEIGHT + 60 }} to={{ x: canvasWidth / 2, y: ZONE_TOP[1]! - 20 }} color={SKETCH_COLORS.accentArrow} variant="straight" instant />
+        )}
+        {zones.length > 2 && (
+          <Arrow from={{ x: canvasWidth / 2, y: ZONE_TOP[1]! + ZONE_IMG_HEIGHT + 60 }} to={{ x: canvasWidth / 2, y: ZONE_TOP[2]! - 20 }} color={SKETCH_COLORS.accentArrow} variant="straight" instant />
+        )}
+      </svg>
+
+      {zones.map((zone, i) => (
+        <SlotReveal key={i} slot={zone} style={{ position: "absolute", left: "18%", top: ZONE_TOP[i]!, width: "64%" }}>
+          <div>
+            {zone.imageUrl && (
+              <div style={{ border: `3px solid ${SKETCH_COLORS.ink}`, borderRadius: 10, background: SKETCH_COLORS.panelFill, padding: 10 }}>
+                <Img src={zone.imageUrl} style={{ width: "100%", height: ZONE_IMG_HEIGHT - 20, objectFit: "contain", display: "block" }} />
+              </div>
+            )}
+            {zone.label && (
+              <div style={{ marginTop: 10, textAlign: "center", fontFamily: SKETCH_FONT_FAMILY, fontSize: 28, color: SKETCH_COLORS.ink }}>{zone.label}</div>
+            )}
+          </div>
+        </SlotReveal>
+      ))}
+      <SlotDecorations slots={slots} />
+    </AbsoluteFill>
+  );
+}
+
+/** Reverse-engineered from the reference corpus's crumbling "PUBLIC
+ * TRUST" monument frame: one large central image with several smaller
+ * "reacting figure" images scattered around its base, all implicitly
+ * facing inward toward the central event.
+ *
+ * Both the central slot and each reactor slot use a FIXED-height box with
+ * objectFit: "contain" rather than width-driven auto-height sizing — a
+ * real dead-zone bug was caught rendering this template's own test: a
+ * landscape-oriented central asset (a wide building) only filled ~380px
+ * of a nominally 700px-tall region, leaving a large empty gap before the
+ * reactors below (which were positioned assuming the tallest case). A
+ * fixed box makes the layout's vertical footprint predictable regardless
+ * of which asset's aspect ratio lands in a given slot. */
+const CENTRAL_TOP = 280;
+const CENTRAL_HEIGHT = 700;
+const REACTOR_TOP = CENTRAL_TOP + CENTRAL_HEIGHT + 40;
+const REACTOR_HEIGHT = 320;
+const REACTOR_POSITIONS = [
+  { left: "4%", top: REACTOR_TOP },
+  { left: "76%", top: REACTOR_TOP },
+  { left: "4%", top: REACTOR_TOP + REACTOR_HEIGHT + 30 },
+  { left: "76%", top: REACTOR_TOP + REACTOR_HEIGHT + 30 },
+];
+
+export function CentralFocalTemplate({ title, slots }: CompositionTemplateProps) {
+  const central = slots.central;
+  const reactors = ["reactor1", "reactor2", "reactor3", "reactor4"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
+  const caption = slots.caption;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
+      <style>{sketchFontFaceCss}</style>
+      <TitleHeading title={title} />
+
+      {central?.imageUrl && (
+        <SlotReveal slot={central} style={{ position: "absolute", left: "15%", top: CENTRAL_TOP, width: "70%", height: CENTRAL_HEIGHT }}>
+          <Img src={central.imageUrl} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        </SlotReveal>
+      )}
+
+      {reactors.map((reactor, i) => {
+        const pos = REACTOR_POSITIONS[i]!;
+        return (
+          <SlotReveal key={i} slot={reactor} style={{ position: "absolute", left: pos.left, top: pos.top, width: "20%", height: REACTOR_HEIGHT }}>
+            <Img src={reactor.imageUrl ?? ""} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          </SlotReveal>
+        );
+      })}
+
+      {caption?.label && (
+        <SlotReveal slot={caption} style={{ position: "absolute", left: "10%", right: "10%", bottom: 120 }}>
+          <div
+            style={{
+              textAlign: "center",
+              fontFamily: SKETCH_FONT_FAMILY,
+              fontSize: 32,
+              color: SKETCH_COLORS.ink,
+              background: SKETCH_COLORS.panelFill,
+              border: `3px solid ${SKETCH_COLORS.ink}`,
+              borderRadius: 12,
+              padding: "16px 24px",
+            }}
+          >
+            {caption.label}
+          </div>
+        </SlotReveal>
+      )}
+      <SlotDecorations slots={slots} />
+    </AbsoluteFill>
+  );
+}
+
+/** Reverse-engineered from the reference corpus's "two armies facing
+ * off" frame: two large images filling most of the frame's height,
+ * mirrored toward a thin central gap — a standoff, not a comparison, so
+ * (unlike Comparison2BoxTemplate) there's no VS badge and no per-side
+ * caption card; just a plain center seam and one shared title/caption. */
+export function ConfrontationMirrorTemplate({ title, slots }: CompositionTemplateProps) {
+  const left = slots.left;
+  const right = slots.right;
+  const caption = slots.caption;
+  const { width: canvasWidth } = useVideoConfig();
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
+      <style>{sketchFontFaceCss}</style>
+      <TitleHeading title={title} />
+
+      {left?.imageUrl && (
+        <SlotReveal slot={left} style={{ position: "absolute", left: "3%", top: 240, width: "45%" }}>
+          <Img src={left.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />
+        </SlotReveal>
+      )}
+      {right?.imageUrl && (
+        <SlotReveal slot={right} style={{ position: "absolute", right: "3%", top: 240, width: "45%" }}>
+          <Img src={right.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />
+        </SlotReveal>
+      )}
+
       <div
         style={{
           position: "absolute",
-          left: "50%",
-          top: 460,
-          transform: "translate(-50%, -50%)",
-          width: 90,
-          height: 90,
-          borderRadius: "50%",
-          border: `3px solid ${SKETCH_COLORS.ink}`,
-          background: SKETCH_COLORS.panelFill,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: SKETCH_FONT_FAMILY,
-          fontSize: 32,
-          color: SKETCH_COLORS.ink,
+          left: canvasWidth / 2 - 2,
+          top: 240,
+          width: 4,
+          height: 1100,
+          background: SKETCH_COLORS.signalRed,
         }}
-      >
-        VS
-      </div>
-    <SlotDecorations slots={slots} />
+      />
+
+      {caption?.label && (
+        <SlotReveal slot={caption} style={{ position: "absolute", left: "10%", right: "10%", bottom: 120 }}>
+          <div
+            style={{
+              textAlign: "center",
+              fontFamily: SKETCH_FONT_FAMILY,
+              fontSize: 32,
+              color: SKETCH_COLORS.ink,
+              background: SKETCH_COLORS.panelFill,
+              border: `3px solid ${SKETCH_COLORS.ink}`,
+              borderRadius: 12,
+              padding: "16px 24px",
+            }}
+          >
+            {caption.label}
+          </div>
+        </SlotReveal>
+      )}
+      <SlotDecorations slots={slots} />
+    </AbsoluteFill>
+  );
+}
+
+/** Reverse-engineered from the reference corpus's 25-emperors crowd
+ * frame: a wrapping row of many small character portraits under a
+ * banner title — reads as "a crowd," not individually-composed panels.
+ * Slot keys person1..personN (any count) are collected and laid out in a
+ * simple wrapping grid, small enough that a dozen-plus fit comfortably. */
+export function GroupLineupTemplate({ title, slots }: CompositionTemplateProps) {
+  const people = Object.entries(slots)
+    .filter(([key]) => key.startsWith("person"))
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([, slot]) => slot);
+  const caption = slots.caption;
+
+  const columns = 4;
+  const cellWidth = 22; // percent
+  const cellHeight = 280;
+  const gridTop = 260;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
+      <style>{sketchFontFaceCss}</style>
+      <TitleHeading title={title} />
+
+      {people.map((person, i) => {
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        return (
+          <SlotReveal
+            key={i}
+            slot={person}
+            // Height-driven, not width-driven: character portraits vary
+            // widely in aspect ratio (a bust vs. a full standing figure),
+            // and a fixed width with auto height let a tall portrait blow
+            // past its row's height and collide with the row below — a
+            // real overlap bug caught rendering this template's own test.
+            // A fixed height keeps every row's vertical footprint
+            // predictable regardless of which asset lands in it.
+            style={{ position: "absolute", left: `${4 + col * (cellWidth + 2)}%`, top: gridTop + row * cellHeight, width: `${cellWidth}%`, height: cellHeight - 40 }}
+          >
+            {person.imageUrl && <Img src={person.imageUrl} style={{ height: "100%", width: "auto", maxWidth: "100%", display: "block", margin: "0 auto", objectFit: "contain" }} />}
+          </SlotReveal>
+        );
+      })}
+
+      {caption?.label && (
+        <SlotReveal
+          slot={caption}
+          style={{ position: "absolute", left: "10%", right: "10%", top: gridTop + Math.ceil(people.length / columns) * cellHeight + 30 }}
+        >
+          <div
+            style={{
+              textAlign: "center",
+              fontFamily: SKETCH_FONT_FAMILY,
+              fontSize: 32,
+              color: SKETCH_COLORS.ink,
+              background: SKETCH_COLORS.panelFill,
+              border: `3px solid ${SKETCH_COLORS.ink}`,
+              borderRadius: 12,
+              padding: "16px 24px",
+            }}
+          >
+            {caption.label}
+          </div>
+        </SlotReveal>
+      )}
+      <SlotDecorations slots={slots} />
     </AbsoluteFill>
   );
 }

@@ -15,6 +15,10 @@ import {
   PyramidFlankedTemplate,
   Storyboard4PanelTemplate,
   Comparison2BoxTemplate,
+  Narrative3ZoneTemplate,
+  CentralFocalTemplate,
+  ConfrontationMirrorTemplate,
+  GroupLineupTemplate,
 } from "../components/CompositionTemplates";
 import { ThemeProvider } from "../theme/ThemeContext";
 import { getTheme } from "../theme/themes";
@@ -74,7 +78,15 @@ function ActionContent({ action }: { action: SceneAction }) {
         case "storyboard-4panel":
           return <Storyboard4PanelTemplate {...props} />;
         case "comparison-2box":
-          return <Comparison2BoxTemplate {...props} />;
+          return <Comparison2BoxTemplate {...props} dividerStyle={composition.dividerStyle} />;
+        case "narrative-3-zone":
+          return <Narrative3ZoneTemplate {...props} />;
+        case "central-focal":
+          return <CentralFocalTemplate {...props} />;
+        case "confrontation-mirror":
+          return <ConfrontationMirrorTemplate {...props} />;
+        case "group-lineup":
+          return <GroupLineupTemplate {...props} />;
       }
     }
   }

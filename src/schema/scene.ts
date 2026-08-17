@@ -171,6 +171,12 @@ export const CompositionTemplateId = z.enum([
   "pyramid-flanked",
   "storyboard-4panel",
   "comparison-2box",
+  // Revision-3 Workstream 5 — reverse-engineered from the reference
+  // corpus (Golpo frames + the product owner's illustrated-history set).
+  "narrative-3-zone",
+  "central-focal",
+  "confrontation-mirror",
+  "group-lineup",
 ]);
 export type CompositionTemplateId = z.infer<typeof CompositionTemplateId>;
 
@@ -180,6 +186,12 @@ export const CompositionSpec = z.object({
   // template doesn't need its own bespoke title field.
   title: z.string().optional(),
   slots: z.record(z.string(), CompositionSlotSchema),
+  // Revision-3 WS5 comparison-2box upgrade: comparison-2box only. "vs"
+  // (default) keeps the circular VS badge; "torn" replaces it with a
+  // jagged torn-paper seam — the reference corpus's "Collapse |
+  // Transformation" treatment, for a comparison that reads as a rupture
+  // rather than a neutral face-off.
+  dividerStyle: z.enum(["vs", "torn"]).optional(),
 });
 export type CompositionSpec = z.infer<typeof CompositionSpec>;
 
