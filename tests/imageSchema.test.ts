@@ -36,7 +36,7 @@ describe("SceneAction image fields", () => {
     expect(SceneDocument.safeParse(doc).success).toBe(false);
   });
 
-  it("rejects an imageConcept longer than 300 characters", () => {
+  it("rejects an imageConcept longer than 600 characters", () => {
     const doc = {
       ...base,
       actions: [
@@ -45,7 +45,7 @@ describe("SceneAction image fields", () => {
           type: "fullBleedGraphic",
           atSeconds: 0,
           durationSeconds: 5,
-          imageConcept: "x".repeat(301),
+          imageConcept: "x".repeat(601),
         },
       ],
     };

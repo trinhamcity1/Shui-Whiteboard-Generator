@@ -120,7 +120,14 @@ export type DecorationSpec = z.infer<typeof DecorationSpec>;
 // output always renderable (revision-2 doc, Layer 3).
 export const CompositionSlotSchema = z.object({
   assetId: z.string().optional(),
-  imageConcept: z.string().max(300).optional(),
+  // 300 was set before the planner prompt was rewritten to demand real,
+  // specific creative briefs (subject/setting/action/mood, explicit
+  // period-accurate attire) — that change is working (verified on a real
+  // render) but routinely produces well-written descriptions past 300
+  // chars, which then fails the one-retry schema-validation loop outright
+  // and crashes the whole render. Raised to give real detail room instead
+  // of fighting a fix already proven to matter.
+  imageConcept: z.string().max(600).optional(),
   // Populated by resolveImages, never author-supplied — same discipline as
   // the top-level action fields above.
   imageUrl: z.string().optional(),
@@ -211,7 +218,14 @@ export const SceneAction = z
     // real imageUrl by the Phase 4 image-generation pipeline step before
     // render. Never invented by the renderer itself; either a human author
     // or the LLM planner sets this, never a fabricated URL.
-    imageConcept: z.string().max(300).optional(),
+    // 300 was set before the planner prompt was rewritten to demand real,
+  // specific creative briefs (subject/setting/action/mood, explicit
+  // period-accurate attire) — that change is working (verified on a real
+  // render) but routinely produces well-written descriptions past 300
+  // chars, which then fails the one-retry schema-validation loop outright
+  // and crashes the whole render. Raised to give real detail room instead
+  // of fighting a fix already proven to matter.
+  imageConcept: z.string().max(600).optional(),
     // Revision-2 Layer 1: selects a named asset from the trained-style
     // library registry instead of describing a fresh image — the default
     // path for any recurring character/prop. imageConcept stays supported
