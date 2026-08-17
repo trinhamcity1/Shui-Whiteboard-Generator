@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fal } from "@fal-ai/client";
 import type { StyleModelTestAsset, StyleModelVersion } from "./types";
+import { SHARED_STYLE } from "./candidatePrompts";
 
 const COST_PER_IMAGE_USD = 0.03; // LoRA inference runs slightly above plain Flux Schnell's $0.02.
 const INFERENCE_ENDPOINT = "fal-ai/flux-lora";
@@ -25,7 +26,7 @@ export async function generateStyleModelTestAssets(args: {
   const results: StyleModelTestAsset[] = [];
 
   for (const subject of subjects) {
-    const prompt = `${styleModel.triggerWord}, warm painterly storybook illustration, ${subject.description}, plain warm cream background, no text, no lettering`;
+    const prompt = `${styleModel.triggerWord}, ${subject.description}. Style: ${SHARED_STYLE}.`;
     console.log(`Generating sign-off test asset "${subject.id}"...`);
 
     const result = await fal.subscribe(INFERENCE_ENDPOINT, {

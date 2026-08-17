@@ -30,7 +30,7 @@
 // prose clauses) and subject-first fixed it. Validated with a fresh
 // small batch before spending on the full candidate run — same
 // discipline as the original vignette-defect fix.
-const SHARED_STYLE =
+export const SHARED_STYLE =
   "whiteboard marker drawing, off-white paper background, no vignette, no gradient shading, no soft " +
   "rendering, confident thick near-black ink outline, hand-drawn wobble not geometric, mostly UNCOLORED " +
   "black-and-white line art with only ONE or TWO small flat color accents (not full color, not painted, " +
