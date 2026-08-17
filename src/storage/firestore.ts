@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { initializeApp, getApps, cert, applicationDefault } from "firebase-admin/app";
 import { getFirestore, Timestamp, FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { JobCost } from "../cost/index";
@@ -41,7 +44,22 @@ let cachedDb: Firestore | undefined;
 // fallback immediately once we know Firestore is unreachable — instead of
 // re-attempting a real network call on every single asset lookup in a
 // scene — collapses many chances at that race down to one.
-let firestoreKnownUnreachable = false;
+// Even a single real attempt can hit that race (it doesn't require repeat
+// attempts to trigger), so the strongest fix is avoiding the attempt
+// entirely when we can already tell ADC has nothing to find: no explicit
+// service account, no well-known gcloud ADC file, and no GCP compute
+// environment (Cloud Run/GCE/Cloud Functions/App Engine all serve ADC via
+// a real metadata server instead of that file).
+function detectAdcAvailable(): boolean {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return true;
+  if (process.env.K_SERVICE || process.env.GAE_APPLICATION || process.env.FUNCTION_TARGET || process.env.GCE_METADATA_HOST) {
+    return true;
+  }
+  const wellKnownPath = path.join(os.homedir(), ".config", "gcloud", "application_default_credentials.json");
+  return fs.existsSync(wellKnownPath);
+}
+
+let firestoreKnownUnreachable = !detectAdcAvailable();
 
 export function isFirestoreKnownUnreachable(): boolean {
   return firestoreKnownUnreachable;

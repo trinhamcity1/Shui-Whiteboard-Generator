@@ -173,14 +173,34 @@ Rules:
   purpose (arrows must guide reading order; xMark only for negation; sparkles are rare accents, not filler)
   should not be added at all.
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
-  concrete and drawable — an object, a place, a process. Use "documentReveal" when the script references an
-  actual document, artifact, or figure worth showing prominently. Use "sketchDiagram" specifically when the
-  script describes a structured hierarchy, multi-step process, or comparison — never force a diagram where
-  a plain illustration or bulletList fits better.
-- Use illustrations/diagrams SPARINGLY: 1-3 per video, not every scene. Most of the video should still carry
-  its point through bulletList/iconCallout/timeline — reserve visuals for the moments that most benefit from
-  one. If nothing in the script is concretely drawable (e.g. an abstract argument), it is correct to use zero
-  and rely on the typographic components alone.
+  concrete and drawable — an object, a place, a process. "fullBleedGraphic" also takes an optional
+  "attribution" (a short caption burned over the image, e.g. "THE CONSTITUTION") — set it whenever a label
+  helps the viewer follow along without relying on audio alone, same idea as a diagram's tier label. Use
+  "documentReveal" when the script references an actual document, artifact, or figure worth showing
+  prominently ("attribution" there is its caption too). Use "sketchDiagram" specifically when the script
+  describes a structured hierarchy, multi-step process, or comparison. Use "composition" (hero-backdrop,
+  central-focal, etc.) for a scene, a group, or a character interacting with something — see the template
+  catalog above.
+- DEFAULT TO AN IMAGE, not a bullet list. This is the single most important rule in this prompt: for every
+  distinct claim or beat in the script, ask "can this be drawn?" first, and if the answer is yes — a person,
+  an object, a place, an action, a document, a comparison, a hierarchy, a group of people — it MUST get an
+  illustrated action (assetId/imageConcept via fullBleedGraphic/documentReveal/composition, or a
+  sketchDiagram), not bulletList/iconCallout/timeline. Reserve the plain typographic components for content
+  that genuinely isn't a concrete image — a list of many short parallel facts with nothing to draw, a direct
+  quotation, a numeric year-by-year timeline. A script that describes concrete things (people, places,
+  objects, actions, comparisons) and gets mostly bulletList scenes is a WRONG plan, not a safe minimal one —
+  the video should read like an illustrated book, one picture per point, not a slideshow of text with
+  occasional decoration. Do not artificially cap how many illustrated scenes a video has — if every beat in
+  the script is concretely drawable, illustrate every one of them.
+- "imageConcept" is a full creative brief, not just a last-resort filler — write it as a real, specific
+  description (subject, setting, action, mood) the way you'd brief an illustrator, the same level of detail
+  as the library's own asset descriptions below. It renders through the project's own trained illustration
+  style (the same "art" the library assets are made of), so treat it as real illustration, not a placeholder
+  — a generic one-word concept like "courtroom" produces a generic result; "a judge's gavel striking down
+  mid-air above a torn law page" produces something worth watching. Prefer "assetId" over "imageConcept"
+  ONLY when an existing library asset is a genuinely good match for this exact moment — never force a loose
+  asset match just to avoid a live-generation cost; a purpose-built imageConcept that actually matches the
+  narration beats a reused asset that only sort of fits.
 - NEVER make the same point twice in two different scenes. Before adding a scene, check whether an earlier
   scene already covers that fact — if a sketchDiagram tier already shows "Constitution," a separate
   iconCallout/bulletList scene restating "the Constitution is the foundation of law" is a redundant scene,

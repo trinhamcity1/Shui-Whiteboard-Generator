@@ -2,7 +2,19 @@ import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
 import { useTheme } from "../theme/ThemeContext";
 
-export function FullBleedGraphic({ imageUrl, startFrame }: { imageUrl: string; startFrame: number }) {
+/** caption is optional — a short label burned over the image so a viewer can
+ * follow along without relying on audio alone (e.g. "THE CONSTITUTION"). A
+ * solid backing panel keeps it legible over any image content underneath,
+ * same discipline as the composition templates' caption cards. */
+export function FullBleedGraphic({
+  imageUrl,
+  caption,
+  startFrame,
+}: {
+  imageUrl: string;
+  caption?: string;
+  startFrame: number;
+}) {
   const frame = useCurrentFrame();
   const theme = useTheme();
   const instant = theme.drawOnMode === "instant";
@@ -24,6 +36,27 @@ export function FullBleedGraphic({ imageUrl, startFrame }: { imageUrl: string; s
           opacity,
         }}
       />
+      {caption && (
+        <div
+          style={{
+            position: "absolute",
+            left: "8%",
+            right: "8%",
+            bottom: 100,
+            textAlign: "center",
+            fontFamily: theme.fontMono,
+            fontSize: 34,
+            color: theme.ink,
+            background: theme.surface,
+            border: `3px solid ${theme.border}`,
+            borderRadius: 12,
+            padding: "16px 24px",
+            opacity,
+          }}
+        >
+          {caption}
+        </div>
+      )}
     </AbsoluteFill>
   );
 }
