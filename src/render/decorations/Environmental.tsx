@@ -47,7 +47,7 @@ export function Bushes({ x, y, width, color = SKETCH_COLORS.leafGreen, startFram
     const drawable = roughGenerator.ellipse(cx, y - r * 0.7, r * 2, r * 1.4, {
       stroke: SKETCH_COLORS.ink,
       fill: color,
-      fillStyle: "solid",
+      fillStyle: SKETCH_LINE.fillStyle,
       strokeWidth: SKETCH_LINE.strokeWidthThin * 1.4,
       roughness: SKETCH_LINE.roughness,
       seed: seed + i,

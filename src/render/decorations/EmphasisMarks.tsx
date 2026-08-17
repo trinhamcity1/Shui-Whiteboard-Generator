@@ -129,10 +129,10 @@ export function Sparkle({ x, y, size = 18, color = SKETCH_COLORS.bright.orange, 
   ];
   const drawable = roughGenerator.polygon(points, {
     fill: color,
-    fillStyle: "solid",
+    fillStyle: SKETCH_LINE.fillStyle,
     stroke: color,
-    strokeWidth: 1,
-    roughness: 1.2,
+    strokeWidth: SKETCH_LINE.strokeWidthHairline,
+    roughness: SKETCH_LINE.roughnessTight,
     seed,
   });
   return (

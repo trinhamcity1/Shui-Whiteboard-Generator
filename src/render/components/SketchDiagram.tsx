@@ -181,7 +181,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
               [(x0 + x1) / 2, (y0 + y1) / 2],
               [x1, y1],
             ],
-            { stroke: SKETCH_COLORS.accentArrow, strokeWidth: 6, roughness: SKETCH_LINE.roughness, seed },
+            { stroke: SKETCH_COLORS.accentArrow, strokeWidth: SKETCH_LINE.strokeWidthThick, roughness: SKETCH_LINE.roughness, seed },
           ),
         );
         const angle = Math.atan2(y1 - (y0 + y1) / 2, x1 - (x0 + x1) / 2);
@@ -194,7 +194,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
               [x1 - headLen * Math.cos(angle - headSpread), y1 - headLen * Math.sin(angle - headSpread)],
               [x1 - headLen * Math.cos(angle + headSpread), y1 - headLen * Math.sin(angle + headSpread)],
             ],
-            { fill: SKETCH_COLORS.accentArrow, fillStyle: SKETCH_LINE.fillStyle, stroke: SKETCH_COLORS.accentArrow, strokeWidth: 1, roughness: 1.5, seed: seed + 1 },
+            { fill: SKETCH_COLORS.accentArrow, fillStyle: SKETCH_LINE.fillStyle, stroke: SKETCH_COLORS.accentArrow, strokeWidth: SKETCH_LINE.strokeWidthHairline, roughness: SKETCH_LINE.roughnessTight, seed: seed + 1 },
           ),
         );
       };
@@ -222,7 +222,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
                 [returnX, first.cy],
                 [first.cx + FLOWCHART_BOX_WIDTH / 2, first.cy],
               ],
-              { stroke: SKETCH_COLORS.accentArrow, strokeWidth: 5, roughness: SKETCH_LINE.roughness, seed: 900 },
+              { stroke: SKETCH_COLORS.accentArrow, strokeWidth: SKETCH_LINE.strokeWidthThick, roughness: SKETCH_LINE.roughness, seed: 900 },
             ),
           );
         }

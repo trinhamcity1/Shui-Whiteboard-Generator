@@ -35,7 +35,7 @@ function FillThenStroke({
       {fill &&
         fillPoints &&
         (() => {
-          const fillDrawable = roughGenerator.polygon(fillPoints, { fill, fillStyle: "solid", stroke: "none" });
+          const fillDrawable = roughGenerator.polygon(fillPoints, { fill, fillStyle: SKETCH_LINE.fillStyle, stroke: "none" });
           return drawableToPaths(fillDrawable)
             .filter((p) => p.fill)
             .map((p, i) => <path key={`fill-${i}`} d={p.d} fill={p.fill} stroke="none" />);
@@ -88,7 +88,7 @@ export function Scroll({ x, y, width, height, color = SKETCH_COLORS.ink, fill = 
   const topCurl = roughGenerator.ellipse(x + width / 2, y + curl, width, curl * 2, {
     stroke: color,
     fill,
-    fillStyle: "solid",
+    fillStyle: SKETCH_LINE.fillStyle,
     strokeWidth: SKETCH_LINE.strokeWidthThin * 1.5,
     roughness: SKETCH_LINE.roughness,
     seed: seed + 1,
@@ -96,7 +96,7 @@ export function Scroll({ x, y, width, height, color = SKETCH_COLORS.ink, fill = 
   const bottomCurl = roughGenerator.ellipse(x + width / 2, y + height - curl, width, curl * 2, {
     stroke: color,
     fill,
-    fillStyle: "solid",
+    fillStyle: SKETCH_LINE.fillStyle,
     strokeWidth: SKETCH_LINE.strokeWidthThin * 1.5,
     roughness: SKETCH_LINE.roughness,
     seed: seed + 2,
@@ -173,7 +173,7 @@ export function SpeechBubble({ x, y, width, height, color = SKETCH_COLORS.ink, f
     [x + width / 2 - 24, y + height + 20],
     [x + width / 2 + 4, y + height],
   ];
-  const tailDrawable = roughGenerator.polygon(tailPoints, { stroke: color, fill, fillStyle: "solid", strokeWidth: SKETCH_LINE.strokeWidthThin * 1.4, roughness: SKETCH_LINE.roughness, seed: seed + 1 });
+  const tailDrawable = roughGenerator.polygon(tailPoints, { stroke: color, fill, fillStyle: SKETCH_LINE.fillStyle, strokeWidth: SKETCH_LINE.strokeWidthThin * 1.4, roughness: SKETCH_LINE.roughness, seed: seed + 1 });
   return (
     <g>
       <rect x={x} y={y} width={width} height={height} fill={fill} stroke="none" />

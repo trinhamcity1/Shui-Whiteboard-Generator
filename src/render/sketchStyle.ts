@@ -61,7 +61,12 @@ export const SKETCH_LINE = {
   strokeWidth: 3, // medium — interior detail, the previous single-weight default
   strokeWidthThick: 5, // silhouettes, title lettering, primary shape outlines
   strokeWidthThin: 1.5, // texture/hatching, secondary detail
+  strokeWidthHairline: 1, // small filled shapes (arrowheads, xMark/checkmark ticks) — a visible stroke width would read as a border, not an outline
   fillStyle: "solid" as const,
+  // A tighter roughness than the shared default for the same small filled
+  // shapes above — at their size, the standard roughness reads as a
+  // shapeless blob rather than a crisp mark.
+  roughnessTight: 1.3,
   // Rich-register-only restrained single-direction hatching (Part I §3) —
   // never dense crosshatch, which turns muddy at phone/reel size.
   hatchAngle: 45,

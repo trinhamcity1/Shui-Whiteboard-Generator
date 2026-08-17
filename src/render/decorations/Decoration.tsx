@@ -5,6 +5,7 @@ import { XMark, Checkmark, RadiatingStrokes, CircledScribble, UnderlineSwash, Sp
 import { BannerRibbon, Scroll, ThoughtBubble, SpeechBubble, WobbleFrame, TornPaperEdge } from "./Containers";
 import { GroundTufts, Bushes, ShadowEllipse } from "./Environmental";
 import type { DecorationSpec } from "../../schema/scene";
+import { SKETCH_COLORS } from "../sketchStyle";
 
 /**
  * Dispatches one DecorationSpec (the planner/schema-level description) to
@@ -28,7 +29,7 @@ export function Decoration({ spec, instant }: { spec: DecorationSpec; instant?: 
         <Arrow
           from={{ x, y }}
           to={{ x: spec.toX ?? x + 100, y: spec.toY ?? y }}
-          color={spec.color ?? "#e03c31"}
+          color={spec.color ?? SKETCH_COLORS.signalRed}
           variant={spec.kind === "arrowCurved" ? "curved" : spec.kind === "arrowStraight" ? "straight" : spec.kind === "arrowJagged" ? "jagged" : "dashed"}
           startFrame={startFrame}
           instant={instant}
