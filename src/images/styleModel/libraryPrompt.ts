@@ -1,14 +1,15 @@
 import type { AssetManifestEntry } from "../assetLibrary/types";
+import { SHARED_STYLE } from "./candidatePrompts";
 
-// Same discipline as candidatePrompts.ts's corrected STYLE_CLAUSE — flat,
-// uniform background only, no atmospheric wash, so background removal
-// actually works on every generated asset.
+// Revision 3: same art direction as candidatePrompts.ts's SHARED_STYLE
+// (confident near-black ink, mostly uncolored with selective flat color
+// accents), plus the one addition library assets specifically need — a
+// FLAT, SOLID, PERFECTLY UNIFORM background so removeFlatBackground's
+// flood-fill actually works on every generated asset.
 const BASE_STYLE =
-  "warm painterly storybook illustration, soft gouache-textured brushwork on the subject " +
-  "itself, warm earthy color palette (ochre, terracotta, sage green, cream). Standalone " +
-  "illustration on a FLAT, SOLID, PERFECTLY UNIFORM cream background color — no vignette, " +
-  "no glow, no gradient, no shading or wash of any kind behind the subject. No text, no " +
-  "lettering, no watermark, no signature.";
+  `${SHARED_STYLE}. Standalone illustration on a FLAT, SOLID, PERFECTLY UNIFORM off-white ` +
+  "background color — no vignette, no glow, no gradient, no shading or wash of any kind " +
+  "behind the subject. No signature.";
 
 export function buildLibraryPrompt(entry: AssetManifestEntry, triggerWord: string): string {
   if (entry.role === "character") {
