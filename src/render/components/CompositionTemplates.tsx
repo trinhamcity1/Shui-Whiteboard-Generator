@@ -45,6 +45,21 @@ function SlotDecorations({ slots }: { slots: Record<string, CompositionSlot> }) 
   return <DecorationLayer decorations={all} />;
 }
 
+/** Workstream 4's one allowed correction: a small nudge on top of the
+ * template's own fixed position, via the independent CSS `translate`/
+ * `scale` properties rather than `transform` — DrawOn already owns
+ * `transform` for its own reveal animation, and these don't conflict with
+ * it the way stacking two `transform` values would. */
+function applyLayoutAdjustment(style: React.CSSProperties, slot: CompositionSlot | undefined): React.CSSProperties {
+  const adj = slot?.layoutAdjustment;
+  if (!adj) return style;
+  return {
+    ...style,
+    translate: adj.offsetX !== undefined || adj.offsetY !== undefined ? `${adj.offsetX ?? 0}px ${adj.offsetY ?? 0}px` : undefined,
+    scale: adj.scaleMultiplier,
+  } as React.CSSProperties;
+}
+
 function SlotReveal({
   slot,
   style,
@@ -56,7 +71,7 @@ function SlotReveal({
 }) {
   const offsetFrames = useSlotOffsetFrames(slot);
   return (
-    <DrawOn startFrame={offsetFrames} style={style}>
+    <DrawOn startFrame={offsetFrames} style={applyLayoutAdjustment(style, slot)}>
       {children}
     </DrawOn>
   );

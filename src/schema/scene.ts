@@ -134,6 +134,18 @@ export const CompositionSlotSchema = z.object({
   // position (each template component decides how to interpret a slot's
   // local coordinate space).
   decorations: z.array(DecorationSpec).optional(),
+  // Workstream 4 — a small nudge applied on top of the template's own
+  // fixed position/scale, the only thing the layout QA loop is allowed to
+  // change (never a slot's content or a template's structure). Author-
+  // settable too, but its real purpose is being the loop's one bounded
+  // correction per scene — see src/pipeline/layoutQA.ts.
+  layoutAdjustment: z
+    .object({
+      offsetX: z.number().optional(),
+      offsetY: z.number().optional(),
+      scaleMultiplier: z.number().positive().optional(),
+    })
+    .optional(),
 });
 export type CompositionSlot = z.infer<typeof CompositionSlotSchema>;
 
