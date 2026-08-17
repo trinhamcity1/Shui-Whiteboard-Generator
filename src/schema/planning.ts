@@ -309,11 +309,14 @@ export async function planScenesFromScript(
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await client.messages.create({
       model,
-      // 1536 was tight even for Haiku; the "illustrate every drawable
-      // beat" density rule plus longer imageConcept creative briefs (and
-      // Sonnet's generally chattier structured output) pushed real plans
-      // past it, truncating mid-JSON. Headroom, not a tuned number.
-      max_tokens: 4096,
+      // 1536, then 4096, both proved too tight and crashed real renders
+      // mid-JSON — the "illustrate every drawable beat" density rule, the
+      // longer imageConcept cap (now 600 chars), and Sonnet's generally
+      // chattier structured output all push a real ~90s plan with many
+      // composed scenes (each with several of its own imageConcept slots)
+      // well past a moderate cap. Generous headroom, not a tuned number —
+      // this is a cap, not a cost driver on its own.
+      max_tokens: 8192,
       system,
       messages,
     });
