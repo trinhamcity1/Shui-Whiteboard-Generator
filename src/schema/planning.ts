@@ -42,6 +42,34 @@ const PLANNABLE_ACTION_TYPES = [
 
 const PlannedActionsSchema = z.array(SceneAction).min(1);
 
+const KNOWN_ASSET_IDS = new Set(ASSET_MANIFEST.map((entry) => entry.id));
+
+/** Every assetId the model can reference across an action, including
+ * sketchDiagram characters/insets and composition slots — same shape
+ * resolveImages.ts's collectAssetIdTargets walks, just against the raw
+ * planned output instead of a resolved SceneDocument. */
+function collectReferencedAssetIds(actions: SceneActionT[]): string[] {
+  const ids: string[] = [];
+  for (const action of actions) {
+    if (action.assetId) ids.push(action.assetId);
+    const diagram = action.sketchDiagram;
+    if (diagram) {
+      if (diagram.leftCharacterAssetId) ids.push(diagram.leftCharacterAssetId);
+      if (diagram.rightCharacterAssetId) ids.push(diagram.rightCharacterAssetId);
+      for (const tier of diagram.tiers) {
+        if (tier.insetAssetId) ids.push(tier.insetAssetId);
+      }
+    }
+    const composition = action.composition;
+    if (composition) {
+      for (const slot of Object.values(composition.slots)) {
+        if (slot.assetId) ids.push(slot.assetId);
+      }
+    }
+  }
+  return ids;
+}
+
 // One line per manifest entry — enough for the planner to pick a sensible
 // assetId without needing to see the actual generated image.
 function buildAssetCatalog(): string {
@@ -290,11 +318,31 @@ export async function planScenesFromScript(
 
     const result = PlannedActionsSchema.safeParse(parsed);
     if (result.success) {
-      const tokensUsed = totalInputTokens + totalOutputTokens;
-      const costUsd =
-        (totalInputTokens / 1_000_000) * INPUT_COST_PER_MTOK_USD +
-        (totalOutputTokens / 1_000_000) * OUTPUT_COST_PER_MTOK_USD;
-      return { actions: result.data, tokensUsed, costUsd };
+      // The model sometimes references a plausible-sounding assetId that
+      // isn't actually in the catalog it was given (a hallucination, not a
+      // schema error — Zod can't catch it since any string is a valid
+      // assetId shape). Caught here and fed back the same way a schema
+      // error is, instead of failing the whole render at image-resolution
+      // time with no chance to self-correct.
+      const invalidIds = [...new Set(collectReferencedAssetIds(result.data))].filter((id) => !KNOWN_ASSET_IDS.has(id));
+      if (invalidIds.length === 0) {
+        const tokensUsed = totalInputTokens + totalOutputTokens;
+        const costUsd =
+          (totalInputTokens / 1_000_000) * INPUT_COST_PER_MTOK_USD +
+          (totalOutputTokens / 1_000_000) * OUTPUT_COST_PER_MTOK_USD;
+        return { actions: result.data, tokensUsed, costUsd };
+      }
+
+      if (attempt === 0) {
+        messages.push({ role: "assistant", content: rawText });
+        messages.push({
+          role: "user",
+          content: `These assetId values do not exist in the catalog you were given: ${invalidIds.join(", ")}. Use only exact ids from the asset library list, or switch that action/slot to "imageConcept" instead. Return ONLY a corrected JSON array of SceneAction objects, no other text.`,
+        });
+        continue;
+      }
+
+      throw new Error(`Scene planner referenced assetId(s) not in the catalog after retry: ${invalidIds.join(", ")}`);
     }
 
     if (attempt === 0) {
