@@ -296,7 +296,11 @@ export async function planScenesFromScript(
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await client.messages.create({
       model,
-      max_tokens: 1536,
+      // 1536 was tight even for Haiku; the "illustrate every drawable
+      // beat" density rule plus longer imageConcept creative briefs (and
+      // Sonnet's generally chattier structured output) pushed real plans
+      // past it, truncating mid-JSON. Headroom, not a tuned number.
+      max_tokens: 4096,
       system,
       messages,
     });
