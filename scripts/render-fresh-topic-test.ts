@@ -45,6 +45,7 @@ async function main() {
     uploadKey: `local-tests/fresh-topic-test-${Date.now()}.mp4`,
     audioFileName: "tts-audio.mp3",
     inlineImagesForLocalDev: true,
+    enableLayoutQA: true,
   });
 
   if (result.sceneDocumentDebug) {
@@ -57,6 +58,14 @@ async function main() {
   console.log(`   video -> ${result.outputLocation}`);
   if (result.uploadUrl) console.log(`   uploaded: ${result.uploadUrl}`);
   else console.warn(`   R2 upload skipped/failed: ${result.uploadError}`);
+
+  if (result.layoutQaLog && result.layoutQaLog.length > 0) {
+    console.log("\nLayout QA log:");
+    for (const entry of result.layoutQaLog) {
+      console.log(`  action "${entry.actionId}": passed=${entry.passed} adjustmentApplied=${entry.adjustmentApplied} cost=$${entry.costUsd.toFixed(4)}`);
+      if (entry.issues.length > 0) console.log(`    issues: ${entry.issues.join("; ")}`);
+    }
+  }
 
   console.log("\nCost breakdown");
   printJobCost(result.jobCost);
