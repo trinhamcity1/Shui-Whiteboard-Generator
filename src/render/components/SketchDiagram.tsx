@@ -56,6 +56,14 @@ const COMPARISON_BOX_HEIGHT = 420;
 const COMPARISON_TOP_Y = 220;
 const COMPARISON_CANVAS_HEIGHT = 800;
 
+// The title sits at top:25 with a 46px font, so it occupies roughly
+// y:25-85. A non-pyramid topLabel banner used to sit at y:60 — squarely
+// inside that range — and clip straight through the title text. Pushing
+// the banner (and the content that follows it) down clears the title
+// first, then leaves its own gap before the diagram body starts.
+const TOP_LABEL_Y_NONPYRAMID = 95;
+const CONTENT_Y_OFFSET_WITH_LABEL = 55;
+
 function tierPolygon(index: number, total: number) {
   const wTop = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * index) / total;
   const wBottom = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * (index + 1)) / total;
@@ -102,6 +110,11 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const [handle] = useState(() => delayRender("Loading font + drawing rough.js sketch diagram"));
 
+  // Only non-pyramid diagrams need this — the pyramid's own topLabel sits
+  // well above the pyramid body (PYRAMID_TOP_Y - 150), nowhere near the
+  // title, so it never needed the push in the first place.
+  const contentYOffset = topLabel && diagramType !== "pyramid" ? CONTENT_Y_OFFSET_WITH_LABEL : 0;
+
   const tierLayout = useMemo(
     () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! }, ...tierPolygon(i, tiers.length) })),
     [tiers],
@@ -111,7 +124,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     () =>
       tiers.map((tier, i) => {
         const cx = CANVAS_WIDTH / 2;
-        const cy = FLOWCHART_TOP_Y + i * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + FLOWCHART_BOX_HEIGHT / 2;
+        const cy = FLOWCHART_TOP_Y + contentYOffset + i * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + FLOWCHART_BOX_HEIGHT / 2;
         return {
           tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! },
           points: boxPoints(cx, cy, FLOWCHART_BOX_WIDTH, FLOWCHART_BOX_HEIGHT),
@@ -119,16 +132,16 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           cy,
         };
       }),
-    [tiers],
+    [tiers, contentYOffset],
   );
   const flowchartCanvasHeight =
-    FLOWCHART_TOP_Y + tiers.length * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + 120;
+    FLOWCHART_TOP_Y + contentYOffset + tiers.length * (FLOWCHART_BOX_HEIGHT + FLOWCHART_GAP) + 120;
 
   const comparisonBoxes = useMemo(() => {
     const pair = tiers.slice(0, 2);
     return pair.map((tier, i) => {
       const cx = CANVAS_WIDTH / 2 + (i === 0 ? -1 : 1) * (COMPARISON_BOX_WIDTH / 2 + 40);
-      const cy = COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2;
+      const cy = COMPARISON_TOP_Y + contentYOffset + COMPARISON_BOX_HEIGHT / 2;
       return {
         tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! },
         points: boxPoints(cx, cy, COMPARISON_BOX_WIDTH, COMPARISON_BOX_HEIGHT),
@@ -136,14 +149,14 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         cy,
       };
     });
-  }, [tiers]);
+  }, [tiers, contentYOffset]);
 
   const canvasHeight =
-    diagramType === "flowchart" ? flowchartCanvasHeight : diagramType === "comparison" ? COMPARISON_CANVAS_HEIGHT : PYRAMID_CANVAS_HEIGHT;
+    diagramType === "flowchart" ? flowchartCanvasHeight : diagramType === "comparison" ? COMPARISON_CANVAS_HEIGHT + contentYOffset : PYRAMID_CANVAS_HEIGHT;
 
   const pyramidStackHeight = tiers.length * TIER_HEIGHT;
   const pyramidBaseY = PYRAMID_TOP_Y + pyramidStackHeight;
-  const anchorBaseY = diagramType === "pyramid" ? pyramidBaseY : diagramType === "flowchart" ? flowchartCanvasHeight - 120 : COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT;
+  const anchorBaseY = diagramType === "pyramid" ? pyramidBaseY : diagramType === "flowchart" ? flowchartCanvasHeight - 120 : COMPARISON_TOP_Y + contentYOffset + COMPARISON_BOX_HEIGHT;
   const characterHeight = (diagramType === "pyramid" ? pyramidStackHeight : anchorBaseY - 150) * SKETCH_LAYOUT.characterToPyramidHeightRatio;
   const characterTop = anchorBaseY - characterHeight;
 
@@ -248,7 +261,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [handle, diagramType, tierLayout, flowSteps, comparisonBoxes, topLabel, bottomBanner, anchorBaseY]);
+  }, [handle, diagramType, tierLayout, flowSteps, comparisonBoxes, topLabel, bottomBanner, anchorBaseY, contentYOffset]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -280,7 +293,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         {topLabel && (
           <BannerRibbon
             x={CANVAS_WIDTH / 2 - 150}
-            y={diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : 60}
+            y={diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : TOP_LABEL_Y_NONPYRAMID}
             width={300}
             height={100}
             instant
@@ -290,7 +303,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         {diagramType === "comparison" && comparisonBoxes.length === 2 && (
           <BannerRibbon
             x={CANVAS_WIDTH / 2 - 60}
-            y={COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2 - 35}
+            y={COMPARISON_TOP_Y + contentYOffset + COMPARISON_BOX_HEIGHT / 2 - 35}
             width={120}
             height={70}
             instant
@@ -303,7 +316,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           style={{
             position: "absolute",
             left: CANVAS_WIDTH / 2 - 150,
-            top: (diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : 60) + 10,
+            top: (diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : TOP_LABEL_Y_NONPYRAMID) + 10,
             width: 300,
             height: 80,
             display: "flex",
@@ -366,7 +379,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           style={{
             position: "absolute",
             left: CANVAS_WIDTH / 2 - 60,
-            top: COMPARISON_TOP_Y + COMPARISON_BOX_HEIGHT / 2 - 24,
+            top: COMPARISON_TOP_Y + contentYOffset + COMPARISON_BOX_HEIGHT / 2 - 24,
             width: 120,
             height: 48,
             display: "flex",

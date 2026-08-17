@@ -26,7 +26,13 @@ export function FullBleedGraphic({
       });
 
   return (
-    <AbsoluteFill style={{ background: theme.ink }}>
+    // theme.background (the paper tone), not theme.ink — the trained model
+    // frequently returns a character cutout with a transparent margin
+    // rather than a true full-frame scene, and objectFit "cover" doesn't
+    // crop that margin away entirely; ink (a near-black stroke color, not
+    // a backdrop) showed through it as a jarring black frame. Paper
+    // matches what every other component in the style uses as its ground.
+    <AbsoluteFill style={{ background: theme.background }}>
       <Img
         src={imageUrl}
         style={{

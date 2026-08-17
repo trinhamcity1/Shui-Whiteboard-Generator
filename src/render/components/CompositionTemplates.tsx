@@ -297,10 +297,25 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
 /** Two illustrated boxes side by side with a VS divider — for "X vs Y"
  * content that needs actual images, not just text (the existing
  * comparisonCards action stays the right choice for text-only compare). */
+const COMPARISON_BOX_TOP = 260;
+const COMPARISON_LABEL_RESERVE = 90; // room below the image for its label
+
 export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: CompositionTemplateProps & { dividerStyle?: "vs" | "torn" }) {
   const left = slots.left;
   const right = slots.right;
-  const { width: canvasWidth } = useVideoConfig();
+  const { width: canvasWidth, height: canvasHeight } = useVideoConfig();
+
+  // The image used to render at its own natural (often near-square)
+  // aspect ratio inside a fixed-width box, which on a tall vertical canvas
+  // left most of the frame empty below it — the real bug a reviewer
+  // flagged. A fixed height (capped so a very wide image doesn't stretch
+  // into an absurdly tall sliver) plus objectFit "cover" makes each box
+  // actually fill most of the vertical frame, the "split the screen in
+  // half" look, instead of floating as a small card near the top.
+  const boxWidthPx = canvasWidth * 0.42;
+  const availableHeight = canvasHeight - COMPARISON_BOX_TOP - COMPARISON_LABEL_RESERVE - 60;
+  const boxHeight = Math.min(availableHeight, boxWidthPx * 1.6);
+  const dividerCenterY = COMPARISON_BOX_TOP + boxHeight / 2;
 
   const boxStyle: React.CSSProperties = {
     border: `3px solid ${SKETCH_COLORS.ink}`,
@@ -315,9 +330,9 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
       <TitleHeading title={title} />
 
       {left && (
-        <SlotReveal slot={left} style={{ position: "absolute", left: "4%", top: 260, width: "42%" }}>
+        <SlotReveal slot={left} style={{ position: "absolute", left: "4%", top: COMPARISON_BOX_TOP, width: "42%" }}>
           <div style={boxStyle}>
-            {left.imageUrl && <Img src={left.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />}
+            {left.imageUrl && <Img src={left.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "cover", display: "block" }} />}
             {left.label && (
               <div style={{ marginTop: 10, textAlign: "center", fontFamily: SKETCH_FONT_FAMILY, fontSize: 26, color: SKETCH_COLORS.ink }}>
                 {left.label}
@@ -327,9 +342,9 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
         </SlotReveal>
       )}
       {right && (
-        <SlotReveal slot={right} style={{ position: "absolute", right: "4%", top: 260, width: "42%" }}>
+        <SlotReveal slot={right} style={{ position: "absolute", right: "4%", top: COMPARISON_BOX_TOP, width: "42%" }}>
           <div style={boxStyle}>
-            {right.imageUrl && <Img src={right.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />}
+            {right.imageUrl && <Img src={right.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "cover", display: "block" }} />}
             {right.label && (
               <div style={{ marginTop: 10, textAlign: "center", fontFamily: SKETCH_FONT_FAMILY, fontSize: 26, color: SKETCH_COLORS.ink }}>
                 {right.label}
@@ -346,9 +361,9 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
         // TornPaperEdge draws teeth along its own top edge with a filled
         // body below; rotating that strip 90° about the divider's center
         // turns it into a vertical seam between the two boxes.
-        <svg width={canvasWidth} height={920} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
-          <g transform={`rotate(90, ${canvasWidth / 2}, 460)`}>
-            <TornPaperEdge x={canvasWidth / 2 - 150} y={420} width={300} height={80} instant />
+        <svg width={canvasWidth} height={canvasHeight} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
+          <g transform={`rotate(90, ${canvasWidth / 2}, ${dividerCenterY})`}>
+            <TornPaperEdge x={canvasWidth / 2 - 150} y={dividerCenterY - 40} width={300} height={80} instant />
           </g>
         </svg>
       ) : (
@@ -356,7 +371,7 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
           style={{
             position: "absolute",
             left: "50%",
-            top: 460,
+            top: dividerCenterY,
             transform: "translate(-50%, -50%)",
             width: 90,
             height: 90,

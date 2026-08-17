@@ -233,6 +233,15 @@ Rules:
   ONLY when an existing library asset is a genuinely good match for this exact moment — never force a loose
   asset match just to avoid a live-generation cost; a purpose-built imageConcept that actually matches the
   narration beats a reused asset that only sort of fits.
+- CHARACTER OUTFIT AND SETTING MUST MATCH THE SCRIPT'S ERA. The asset library below is built entirely
+  around modern civics content — a narrator in a modern collared shirt, judges in modern black robes,
+  police officers in modern uniforms. That library is a WRONG match for anything set in a different time,
+  place, or culture (ancient history, mythology, another country's traditional dress, etc.) — reusing a
+  modern-civics assetId there is not "close enough," it's a visible anachronism (a Bronze Age Greek sailor
+  drawn in a modern collared shirt). When the script's setting doesn't match what the library actually
+  depicts, use "imageConcept" instead and write the character's actual period-accurate attire and
+  appearance into the brief explicitly — e.g. for ancient Greece: "wearing a simple wool chiton, leather
+  sandals, no modern clothing," not just "a sailor." Get the history right before you get the drawing right.
 - NEVER make the same point twice in two different scenes. Before adding a scene, check whether an earlier
   scene already covers that fact — if a sketchDiagram tier already shows "Constitution," a separate
   iconCallout/bulletList scene restating "the Constitution is the foundation of law" is a redundant scene,

@@ -34,6 +34,20 @@ export class TrainedStyleImageProvider implements ImageProvider {
     concept: string,
     _opts: { styleVariant: string; orientation: "vertical" | "horizontal" },
   ): Promise<RawGeneratedImage> {
+    const first = await this.generateOnce(concept);
+    if (!(await isEffectivelyBlank(first.imageBuffer))) return first;
+
+    // Caught on a real render: the model occasionally returns a flat/empty
+    // result for a concept — background removal then strips it down to a
+    // fully (or near-fully) blank image, silently rendering as an empty
+    // white box with no indication anything went wrong. One retry before
+    // accepting whatever comes back, same discipline as the planner's own
+    // one-retry-then-accept pattern elsewhere in this pipeline.
+    const retry = await this.generateOnce(concept);
+    return retry;
+  }
+
+  private async generateOnce(concept: string): Promise<RawGeneratedImage> {
     fal.config({ credentials: this.apiKey });
 
     const prompt =
@@ -80,4 +94,19 @@ export class TrainedStyleImageProvider implements ImageProvider {
       costUsd: COST_PER_IMAGE_USD,
     };
   }
+}
+
+/** True if the image has no real visible content — either almost entirely
+ * transparent (background removal found no subject to keep) or almost
+ * entirely one flat color (a wash with nothing drawn on it). Caught on a
+ * real render: a "pen full of pigs" concept came back as a fully blank
+ * 1024x1024 white square, rendering as an empty box with no error. */
+async function isEffectivelyBlank(buffer: Buffer): Promise<boolean> {
+  const sharp = (await import("sharp")).default;
+  const stats = await sharp(buffer).stats();
+  const alphaChannel = stats.channels[3];
+  if (alphaChannel && alphaChannel.mean < 8) return true;
+  const [r, g, b] = stats.channels;
+  const maxStdev = Math.max(r?.stdev ?? 0, g?.stdev ?? 0, b?.stdev ?? 0);
+  return maxStdev < 3;
 }
