@@ -4,7 +4,7 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { ElevenLabsTTSProvider } from "../tts/elevenlabs";
 import { buildJobCost, type JobCost } from "../cost/index";
-import { checkSceneTiming } from "../render/timing";
+import { checkSceneTiming, realignSceneTiming } from "../render/timing";
 import { uploadRenderToR2 } from "../storage/r2";
 import { resolveSceneDocument, type SceneDocumentRequest } from "./resolveSceneDocument";
 import { inlineRemoteImagesForLocalDev } from "./localDevInlining";
@@ -50,6 +50,13 @@ export async function renderSceneDocumentJob(args: {
 
   const tts = new ElevenLabsTTSProvider(args.apiKey);
   const ttsResult = await tts.synthesize(sceneDocument.narrationScript, { voice: sceneDocument.voice });
+
+  // Snaps every action's timing from the planner's pre-TTS estimate onto
+  // the real per-word timestamps ElevenLabs just returned — see
+  // realignSceneTiming's own comment for why the estimate drifts and what
+  // this fixes. Runs before checkSceneTiming so the warning below reflects
+  // genuine remaining drift, not the (now corrected) estimate-vs-real gap.
+  realignSceneTiming(sceneDocument, ttsResult.wordTimings);
 
   const timingResult = checkSceneTiming(sceneDocument, ttsResult.durationSeconds);
 

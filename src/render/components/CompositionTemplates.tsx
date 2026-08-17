@@ -516,11 +516,25 @@ export function CentralFocalTemplate({ title, slots }: CompositionTemplateProps)
  * mirrored toward a thin central gap — a standoff, not a comparison, so
  * (unlike Comparison2BoxTemplate) there's no VS badge and no per-side
  * caption card; just a plain center seam and one shared title/caption. */
+const CONFRONTATION_TOP = 240;
+const CONFRONTATION_CAPTION_RESERVE = 200; // room below for the shared caption card
+
 export function ConfrontationMirrorTemplate({ title, slots }: CompositionTemplateProps) {
   const left = slots.left;
   const right = slots.right;
   const caption = slots.caption;
-  const { width: canvasWidth } = useVideoConfig();
+  const { width: canvasWidth, height: canvasHeight } = useVideoConfig();
+
+  // The doc comment above promises "two large images filling most of the
+  // frame's height" — the real code never did that, it sized each image
+  // by its own natural (often near-square) aspect ratio, same dead-space
+  // bug Comparison2BoxTemplate had. Here it was worse: the red divider
+  // line's height was a flat hardcoded 1100px regardless of where the
+  // images actually ended, so it visibly ran on through the empty gap
+  // below them — the "questionable red line" a reviewer flagged.
+  const boxWidthPx = canvasWidth * 0.45;
+  const availableHeight = canvasHeight - CONFRONTATION_TOP - CONFRONTATION_CAPTION_RESERVE;
+  const boxHeight = Math.min(availableHeight, boxWidthPx * 1.8);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -528,13 +542,13 @@ export function ConfrontationMirrorTemplate({ title, slots }: CompositionTemplat
       <TitleHeading title={title} />
 
       {left?.imageUrl && (
-        <SlotReveal slot={left} style={{ position: "absolute", left: "3%", top: 240, width: "45%" }}>
-          <Img src={left.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />
+        <SlotReveal slot={left} style={{ position: "absolute", left: "3%", top: CONFRONTATION_TOP, width: "45%" }}>
+          <Img src={left.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "cover", display: "block" }} />
         </SlotReveal>
       )}
       {right?.imageUrl && (
-        <SlotReveal slot={right} style={{ position: "absolute", right: "3%", top: 240, width: "45%" }}>
-          <Img src={right.imageUrl} style={{ width: "100%", height: "auto", display: "block" }} />
+        <SlotReveal slot={right} style={{ position: "absolute", right: "3%", top: CONFRONTATION_TOP, width: "45%" }}>
+          <Img src={right.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "cover", display: "block" }} />
         </SlotReveal>
       )}
 
@@ -542,9 +556,9 @@ export function ConfrontationMirrorTemplate({ title, slots }: CompositionTemplat
         style={{
           position: "absolute",
           left: canvasWidth / 2 - 2,
-          top: 240,
+          top: CONFRONTATION_TOP,
           width: 4,
-          height: 1100,
+          height: boxHeight,
           background: SKETCH_COLORS.signalRed,
         }}
       />

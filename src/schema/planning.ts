@@ -23,7 +23,11 @@ const INPUT_COST_PER_MTOK_USD = 3.0;
 const OUTPUT_COST_PER_MTOK_USD = 15.0;
 
 const DEFAULT_MODEL = "claude-sonnet-5";
-const WORDS_PER_SECOND = 2.5; // ~150 wpm, a normal narration pace
+// Exported so timing.ts's realignSceneTiming can map a scene's atSeconds
+// back to the same word index the planner implicitly used when it chose
+// that timestamp — the two need to agree on the same rate or the mapping
+// is meaningless.
+export const WORDS_PER_SECOND = 2.5; // ~150 wpm, a normal narration pace
 
 // Phase 4: the planner may now request illustrations too — resolved to a
 // real image by the image-generation pipeline step before render, so the
