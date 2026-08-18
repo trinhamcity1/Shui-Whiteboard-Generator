@@ -82,6 +82,9 @@ Rules:
 - At least one beat must have role "attention" and be the FIRST beat (atSeconds: 0).
 - At least one beat must have role "direction" and carry a ctaLabel or promoBadge.
 - Only use "promoBadge" if the business actually gave a promotion (see below) — never invent a discount.
+- Only set "ctaUrl" if a real website URL was actually given below (see "Website URL") — never invent one, and never
+  guess a plausible-looking product page. If none was given, omit "ctaUrl" entirely; the ctaLabel alone (e.g. "Shop
+  now") is still a complete, valid direction beat without a link attached.
 - Only reference "imageIndex" values that exist in the ${request.productImages.length} image(s) actually given.
 - Do not add narration text to every beat — a beat can be pure visual (photoRef only) or pure CTA (ctaLabel only) with no spoken line.
 
@@ -89,6 +92,7 @@ Business: ${request.businessName} (${request.businessType})
 Product/service: ${request.productDescription}
 Platform: ${request.platform}
 ${request.promotion ? `Current promotion: ${request.promotion.description}${request.promotion.code ? ` (code: ${request.promotion.code})` : ""}${request.promotion.expiresAt ? `, expires ${request.promotion.expiresAt}` : ""}` : "No current promotion."}
+Website URL: ${request.websiteUrl ?? "none given — do not set ctaUrl on any beat"}
 Product images provided: ${request.productImages.map((img, i) => `[${i}] ${img.label ?? "unlabeled"}`).join(", ")}`;
 }
 

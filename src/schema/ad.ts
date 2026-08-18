@@ -147,6 +147,10 @@ export const AdRequestSchema = z
       })
       .optional(),
     targetAudience: z.string().optional(),
+    // The real destination for a Direction beat's CTA — if omitted, the
+    // planner must not invent one (see adPlanning.ts); the CTA label alone
+    // ("Shop now") still stands without a URL to attach it to.
+    websiteUrl: z.string().optional(),
     platform: AdPlatform,
     // "auto" defers to the planner's own judgment against AD_DURATION_TIERS.
     durationSeconds: z.union([z.number().positive(), z.literal("auto")]).default("auto"),

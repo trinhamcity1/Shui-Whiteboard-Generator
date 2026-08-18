@@ -6,6 +6,7 @@ import { ElevenLabsTTSProvider } from "../tts/elevenlabs";
 import { buildJobCost, type JobCost } from "../cost/index";
 import { uploadRenderToR2 } from "../storage/r2";
 import { resolveAdDocument } from "./resolveAdDocument";
+import { inlineAdImagesForLocalDev } from "./localDevInlining";
 import type { AdInputProps } from "../render/Root";
 
 export interface RenderAdJobResult {
@@ -31,8 +32,14 @@ export async function renderAdJob(args: {
   outputLocation: string;
   uploadKey: string;
   audioFileName?: string;
+  /** See localDevInlining.ts — opt-in workaround for this sandbox only, never set in production. */
+  inlineImagesForLocalDev?: boolean;
 }): Promise<RenderAdJobResult> {
   const { adDocument, adPlanning } = await resolveAdDocument(args.request, args.ownerApiKeyId, { apiKey: process.env.ANTHROPIC_API_KEY });
+
+  if (args.inlineImagesForLocalDev) {
+    await inlineAdImagesForLocalDev(adDocument);
+  }
 
   // Beats with spoken narration, concatenated in plan order, form the full
   // TTS script — a beat with no "text" (a pure-visual or pure-CTA beat)
