@@ -14,7 +14,9 @@ async function main() {
   }
   console.log(`Reviewing ${result.reviewed} pending asset(s)...\n`);
   console.log(result.log.join("\n"));
-  console.log(`\nPromoted ${result.promoted}/${result.reviewed}. Quarantine-check cost: $${result.costUsd.toFixed(4)}.`);
+  console.log(
+    `\nPromoted ${result.promoted}/${result.reviewed}, dropped ${result.dropped}. Quarantine-check cost: $${result.costUsd.toFixed(4)}.`,
+  );
 }
 
 main().catch((err) => {

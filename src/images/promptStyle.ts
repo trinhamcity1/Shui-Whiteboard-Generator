@@ -3,8 +3,6 @@
 // the typographic components around them, not a mismatched sticker.
 const STYLE_PROMPT_PREFIX: Record<string, string> = {
   "classic-whiteboard": "simple black-and-white whiteboard-style line illustration of:",
-  "chalkboard-dark": "chalk-drawn illustration on a dark chalkboard background of:",
-  "modern-minimal": "clean flat minimal geometric illustration of:",
   "full-frame": "simple black-and-white whiteboard-style line illustration of:",
   // Not a shipped StyleTheme — an experimental prompt for quality testing
   // (see scripts/render-illustration-comparison.ts). A video using this

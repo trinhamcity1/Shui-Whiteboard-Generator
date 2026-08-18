@@ -222,6 +222,12 @@ export async function createLibraryAsset(record: LibraryAssetRecord): Promise<vo
   await db.collection("assetLibrary").doc(record.id).set(record);
 }
 
+/** Drops a library asset's record entirely — used when it fails quarantine and isn't going to be retried. */
+export async function deleteLibraryAsset(id: string): Promise<void> {
+  const db = getDb();
+  await db.collection("assetLibrary").doc(id).delete();
+}
+
 export async function listLibraryAssets(tier?: string): Promise<LibraryAssetRecord[]> {
   const db = getDb();
   let query: FirebaseFirestore.Query = db.collection("assetLibrary");

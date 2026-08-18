@@ -16,7 +16,7 @@ describe("cacheKeyFor", () => {
 
   it("produces different keys for different style variants", () => {
     const a = cacheKeyFor("recraft", "classic-whiteboard", "a ballot box");
-    const b = cacheKeyFor("recraft", "chalkboard-dark", "a ballot box");
+    const b = cacheKeyFor("recraft", "full-frame", "a ballot box");
     expect(a).not.toBe(b);
   });
 

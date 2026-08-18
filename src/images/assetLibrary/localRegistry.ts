@@ -40,3 +40,8 @@ export function updateLocalLibraryAsset(id: string, patch: Partial<LibraryAssetR
 export function listLocalAutoExpandedAssets(): LibraryAssetRecord[] {
   return readAll();
 }
+
+export function removeLocalLibraryAsset(id: string): void {
+  const all = readAll();
+  writeAll(all.filter((r) => r.id !== id));
+}

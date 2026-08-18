@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export interface R2Config {
@@ -82,6 +82,13 @@ export async function uploadBufferToR2(args: {
 
   const url = await getPresignedUrlForKey({ key: args.key, config, expiresInSeconds: args.expiresInSeconds });
   return { url, key: args.key };
+}
+
+/** Permanently removes an object from the bucket — used to drop an asset that failed quarantine. */
+export async function deleteObjectFromR2(args: { key: string; config?: R2Config }): Promise<void> {
+  const config = args.config ?? loadR2ConfigFromEnv();
+  const client = buildClient(config);
+  await client.send(new DeleteObjectCommand({ Bucket: config.bucketName, Key: args.key }));
 }
 
 /**
