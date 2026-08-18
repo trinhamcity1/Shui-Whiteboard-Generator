@@ -70,6 +70,10 @@ VISUAL STYLE — pick exactly one for the WHOLE ad (a beat cannot mix styles):
   big bold kinetic title typography. Best for packaged goods, drinks, cosmetics, anything that reads well as a
   single hero object on a clean background rather than an in-context photo — think a glossy e-commerce product
   spot, not a documentary.
+  COLOR for this style: default to bright, highly saturated, eye-catching gradient colors — this style exists to
+  look stunning and scroll-stopping, not corporate-safe. A muted/desaturated/dark palette is a deliberate choice
+  for a genuinely premium/luxury/moody brand, not the default fallback for "a gadget" or "I'm not sure what fits."
+  When in doubt, go bolder and more saturated, not calmer.
 ${request.visualStyle ? `The business specified "${request.visualStyle}" — use it.` : "The business did not specify one — pick whichever fits the product better, using the guidance above."}
 
 DURATION — the business gave: ${request.durationSeconds === "auto" ? "no preference, decide for them using this rubric" : `an explicit ${request.durationSeconds}s`}.
