@@ -35,7 +35,9 @@ export async function renderAdJob(args: {
   /** See localDevInlining.ts — opt-in workaround for this sandbox only, never set in production. */
   inlineImagesForLocalDev?: boolean;
 }): Promise<RenderAdJobResult> {
-  const { adDocument, adPlanning } = await resolveAdDocument(args.request, args.ownerApiKeyId, { apiKey: process.env.ANTHROPIC_API_KEY });
+  const { adDocument, adPlanning, backgroundRemoval } = await resolveAdDocument(args.request, args.ownerApiKeyId, {
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
 
   if (args.inlineImagesForLocalDev) {
     await inlineAdImagesForLocalDev(adDocument);
@@ -97,12 +99,18 @@ export async function renderAdJob(args: {
     renderWallClockSeconds,
     scenePlanningLLMTokens: adPlanning.tokensUsed,
     scenePlanningCostUsd: adPlanning.costUsd,
-    // No image-generation step in ad mode — beats reference the business's
-    // own uploaded photos, resolved to Ken Burns motion at render time
-    // with zero image-provider cost.
-    imagesGenerated: 0,
+    // photo-real beats reference the business's own uploaded photos
+    // directly (zero image-provider cost); kinetic-hero beats run a real
+    // fal.ai background-removal call per distinct product photo they
+    // reference — tracked here under the same "images" line rather than
+    // a bespoke field, since it's the same kind of per-image vendor cost
+    // the whiteboard pipeline's imageGenerationCostUsd already represents.
+    // No imageProvider set here — it's fal.ai's rembg endpoint, not one of
+    // the three named illustration providers that field's type models;
+    // printJobCost just shows "?" for provider, which is honest.
+    imagesGenerated: backgroundRemoval.imagesProcessed,
     imageCacheHits: 0,
-    imageGenerationCostUsd: 0,
+    imageGenerationCostUsd: backgroundRemoval.costUsd,
   });
 
   return {

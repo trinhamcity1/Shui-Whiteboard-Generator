@@ -1,9 +1,19 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { AdBeat, AdTemplateId, AD_DURATION_TIERS, type AdRequest, type AdBeat as AdBeatT, type AdTemplateId as AdTemplateIdT } from "./ad";
+import {
+  AdBeat,
+  AdTemplateId,
+  AdVisualStyle,
+  AD_DURATION_TIERS,
+  type AdRequest,
+  type AdBeat as AdBeatT,
+  type AdTemplateId as AdTemplateIdT,
+  type AdVisualStyle as AdVisualStyleT,
+} from "./ad";
 
 export interface AdPlanningResult {
   templateId: AdTemplateIdT;
+  visualStyle: AdVisualStyleT;
   durationSeconds: number;
   targetAudience: string;
   suggestedAudiences?: string[];
@@ -51,6 +61,17 @@ META'S CREATIVE PRINCIPLES:
 TEMPLATE CATALOG — pick exactly one, never invent a new structure:
 ${TEMPLATE_CATALOG}
 
+VISUAL STYLE — pick exactly one for the WHOLE ad (a beat cannot mix styles):
+- "photo-real": a Ken Burns push/pull on the business's own real, uncropped uploaded photo(s), with word-highlight
+  captions. Best for anything that reads better as authentic/POV/lifestyle — action cameras, apparel worn in real
+  settings, services, anything where "this is a real photo of the real thing" IS the credibility.
+- "kinetic-hero": a glossy commercial motion-graphics look — a solid/gradient color background, the product shown
+  as a clean floating/rotating hero cutout (background removed), small decorative props drifting around it, and
+  big bold kinetic title typography. Best for packaged goods, drinks, cosmetics, anything that reads well as a
+  single hero object on a clean background rather than an in-context photo — think a glossy e-commerce product
+  spot, not a documentary.
+${request.visualStyle ? `The business specified "${request.visualStyle}" — use it.` : "The business did not specify one — pick whichever fits the product better, using the guidance above."}
+
 DURATION — the business gave: ${request.durationSeconds === "auto" ? "no preference, decide for them using this rubric" : `an explicit ${request.durationSeconds}s`}.
 ${tierRubric}
 
@@ -59,6 +80,7 @@ TARGET AUDIENCE — the business gave: ${request.targetAudience ?? "no target au
 Output ONLY a JSON object, no prose, no markdown fences:
 {
   "templateId": one of the template ids above,
+  "visualStyle": "photo-real" | "kinetic-hero",
   "durationSeconds": number,
   "targetAudience": string,
   "suggestedAudiences": string[] (ONLY include this key if the business did not give a target audience),
@@ -68,7 +90,13 @@ Output ONLY a JSON object, no prose, no markdown fences:
       "role": "attention" | "branding" | "connection" | "direction",
       "atSeconds": number, "durationSeconds": number,
       "text": string (optional — spoken narration for this beat, concatenated in order across beats to form the full script),
-      "photoRef": { "imageIndex": number (0-based, into the ${request.productImages.length} product image(s) given), "focalPoint": {"x":0-1,"y":0-1}, "zoomFrom": number, "zoomTo": number } (optional),
+      "photoRef": { "imageIndex": number, "focalPoint": {"x":0-1,"y":0-1}, "zoomFrom": number, "zoomTo": number }
+        (optional — ONLY when visualStyle is "photo-real"),
+      "kineticHero": { "productImageIndex": number, "backgroundColorFrom": string (hex), "backgroundColorTo": string (hex),
+        "title": string (a SHORT, bold headline — 1-4 words, e.g. "FRESH ORANGE" — this is a graphic design
+        element, not a caption), "props": [ { "kind": one of the prop kinds below, "startX": 0-1, "startY": 0-1,
+        "driftAngleDeg": number, "driftDistancePx": number, "sizePx": number, "delaySeconds": number }, ... up to
+        8-10 props ] } (optional — ONLY when visualStyle is "kinetic-hero"),
       "promoBadge": { "code": string, "description": string, "expiresAt": string } (optional — only on a promo/direction beat, only if a promotion was actually given),
       "ctaLabel": string (optional — a specific single-threaded CTA, e.g. "Order now", not "Learn more"),
       "ctaUrl": string (optional),
@@ -77,16 +105,29 @@ Output ONLY a JSON object, no prose, no markdown fences:
   ]
 }
 
+KINETIC PROP KINDS (pick whichever actually fit the product's category — never force fruit/ice onto a product
+they don't suit; pick 3-6 per beat, not all of them, and vary size/startX/startY/driftAngleDeg per prop so they
+don't overlap):
+- "citrus-slice", "droplet", "bubble": drinks, food, skincare with a "fresh/hydrating" angle.
+- "ice-cube": cold drinks specifically.
+- "leaf", "petal": natural/organic/wellness products.
+- "sparkle", "star-burst": beauty, jewelry, anything "shiny/premium."
+- "wisp": steam/motion/energy — coffee, tech, anything implying speed or warmth.
+- "flame": energy drinks, spicy food, anything "intense."
+A gadget/hardware product (a camera, a tool) fits kinetic-hero fine too — lean on "sparkle"/"star-burst"/"wisp"
+(implying a lens flare/motion-trail) rather than forcing food-coded props onto it.
+
 Rules:
 - Every beat's atSeconds + durationSeconds must sum to at most the plan's own durationSeconds.
 - At least one beat must have role "attention" and be the FIRST beat (atSeconds: 0).
 - At least one beat must have role "direction" and carry a ctaLabel or promoBadge.
+- A beat can carry "photoRef" OR "kineticHero", never both — and only the one matching the plan's own visualStyle.
 - Only use "promoBadge" if the business actually gave a promotion (see below) — never invent a discount.
 - Only set "ctaUrl" if a real website URL was actually given below (see "Website URL") — never invent one, and never
   guess a plausible-looking product page. If none was given, omit "ctaUrl" entirely; the ctaLabel alone (e.g. "Shop
   now") is still a complete, valid direction beat without a link attached.
-- Only reference "imageIndex" values that exist in the ${request.productImages.length} image(s) actually given.
-- Do not add narration text to every beat — a beat can be pure visual (photoRef only) or pure CTA (ctaLabel only) with no spoken line.
+- Only reference "imageIndex"/"productImageIndex" values that exist in the ${request.productImages.length} image(s) actually given.
+- Do not add narration text to every beat — a beat can be pure visual (photoRef/kineticHero only) or pure CTA (ctaLabel only) with no spoken line.
 
 Business: ${request.businessName} (${request.businessType})
 Product/service: ${request.productDescription}
@@ -105,6 +146,7 @@ function extractJson(text: string): unknown {
 
 const PlannedAdSchema = z.object({
   templateId: AdTemplateId,
+  visualStyle: AdVisualStyle,
   durationSeconds: z.number().positive(),
   targetAudience: z.string(),
   suggestedAudiences: z.array(z.string()).optional(),
@@ -168,9 +210,8 @@ export async function planAdFromRequest(
 
     const result = PlannedAdSchema.safeParse(parsed);
     if (result.success) {
-      const invalidIndexes = result.data.beats
-        .map((b) => b.photoRef?.imageIndex)
-        .filter((i): i is number => i !== undefined && (i < 0 || i >= request.productImages.length));
+      const referencedIndexes = result.data.beats.flatMap((b) => [b.photoRef?.imageIndex, b.kineticHero?.productImageIndex]);
+      const invalidIndexes = referencedIndexes.filter((i): i is number => i !== undefined && (i < 0 || i >= request.productImages.length));
       if (invalidIndexes.length === 0) {
         const tokensUsed = totalInputTokens + totalOutputTokens;
         const costUsd =
@@ -181,7 +222,7 @@ export async function planAdFromRequest(
         messages.push({ role: "assistant", content: rawText });
         messages.push({
           role: "user",
-          content: `These photoRef.imageIndex values are out of range (only 0-${request.productImages.length - 1} exist): ${invalidIndexes.join(", ")}. Return a corrected JSON object, no other text.`,
+          content: `These photoRef/kineticHero image index values are out of range (only 0-${request.productImages.length - 1} exist): ${invalidIndexes.join(", ")}. Return a corrected JSON object, no other text.`,
         });
         continue;
       }

@@ -21,6 +21,7 @@ export type AdInputProps = AdRendererProps & Record<string, unknown>;
 const DEFAULT_AD_DOCUMENT: AdDocument = {
   schemaVersion: 2,
   templateId: "problem-solution",
+  visualStyle: "photo-real",
   platform: "instagram",
   voice: "",
   durationSeconds: 10,

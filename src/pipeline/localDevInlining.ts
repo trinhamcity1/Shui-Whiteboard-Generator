@@ -58,11 +58,16 @@ export async function inlineRemoteImagesForLocalDev(sceneDocument: SceneDocument
   }
 }
 
-/** Same workaround, ad-mode's sibling — inlines every productImages[].url. */
+/** Same workaround, ad-mode's sibling — inlines every productImages[].url and every kinetic-hero cutout. */
 export async function inlineAdImagesForLocalDev(adDocument: AdDocument): Promise<void> {
   for (const image of adDocument.productImages) {
     if (image.url.startsWith("https://")) {
       image.url = await toDataUri(image.url);
+    }
+  }
+  for (const beat of adDocument.beats) {
+    if (beat.kineticHero?.cutoutUrl?.startsWith("https://")) {
+      beat.kineticHero.cutoutUrl = await toDataUri(beat.kineticHero.cutoutUrl);
     }
   }
 }

@@ -15,6 +15,7 @@ const validRequest = {
 const validDocument = {
   schemaVersion: 2,
   templateId: "problem-solution",
+  visualStyle: "photo-real",
   platform: "instagram",
   voice: "voice-id",
   durationSeconds: 10,

@@ -72,6 +72,68 @@ export const PromoBadge = z.object({
 });
 export type PromoBadge = z.infer<typeof PromoBadge>;
 
+// A second visual "look" for the Ads product, alongside photo-real Ken
+// Burns: a glossy commercial motion-graphics style (gradient background,
+// a background-removed product cutout as a floating/rotating hero object,
+// decorative props orbiting it, bold kinetic title typography) — modeled
+// on a real reference (a "FRESH ORANGE" juice-bottle promo: solid green
+// background, spinning bottle entrance, floating citrus/ice/splash props,
+// big drop-shadowed title). templateId stays the STORY structure
+// (problem-solution, demo, etc); visualStyle is a separate axis layered
+// on top of it.
+export const AdVisualStyle = z.enum(["photo-real", "kinetic-hero"]);
+export type AdVisualStyle = z.infer<typeof AdVisualStyle>;
+
+// A curated, product-agnostic vocabulary of floating decorative props,
+// rendered as emoji glyphs — same discipline as DecorationKind in
+// scene.ts (a fixed set the planner selects from, never invents), but a
+// deliberately cheap stand-in for commissioned glossy 3D prop art: an
+// emoji reads correctly at a glance and costs nothing to render, versus
+// designing ~10 category-specific SVG assets before this style can ship
+// at all. Revisit with real illustrated props once the style is
+// validated on real renders.
+export const KineticPropKind = z.enum([
+  "citrus-slice",
+  "ice-cube",
+  "leaf",
+  "droplet",
+  "sparkle",
+  "bubble",
+  "wisp",
+  "star-burst",
+  "petal",
+  "flame",
+]);
+export type KineticPropKind = z.infer<typeof KineticPropKind>;
+
+export const KineticProp = z.object({
+  kind: KineticPropKind,
+  // Starting position as a 0-1 fraction of the frame, and a drift
+  // direction/distance the prop travels outward from there across the
+  // beat's own duration — the "burst outward from center" motion in the
+  // reference video, parameterized instead of hand-keyframed per prop.
+  startX: z.number().min(0).max(1),
+  startY: z.number().min(0).max(1),
+  driftAngleDeg: z.number(),
+  driftDistancePx: z.number().nonnegative().default(120),
+  sizePx: z.number().positive().default(48),
+  delaySeconds: z.number().nonnegative().default(0),
+});
+export type KineticProp = z.infer<typeof KineticProp>;
+
+export const KineticHeroSpec = z.object({
+  // Index into productImages — resolveAdDocument runs background removal
+  // on this photo once (see src/images/backgroundRemoval.ts) and fills
+  // cutoutUrl below; the planner only ever picks WHICH photo, never a URL.
+  productImageIndex: z.number().int().nonnegative(),
+  cutoutUrl: z.string().optional(),
+  backgroundColorFrom: z.string(),
+  backgroundColorTo: z.string(),
+  title: z.string(),
+  props: z.array(KineticProp).max(12),
+});
+export type KineticHeroSpec = z.infer<typeof KineticHeroSpec>;
+
 export const AdBeat = z
   .object({
     id: z.string(),
@@ -83,17 +145,25 @@ export const AdBeat = z
     // discipline as SceneAction, minus the illustration-specific fields.
     text: z.string().optional(),
     photoRef: PhotoRef.optional(),
+    kineticHero: KineticHeroSpec.optional(),
     promoBadge: PromoBadge.optional(),
     ctaLabel: z.string().optional(),
     ctaUrl: z.string().optional(),
     captionStyle: z.enum(["word-highlight", "sentence", "none"]).default("word-highlight"),
   })
   .superRefine((beat, ctx) => {
-    if (!beat.text && !beat.photoRef && !beat.promoBadge && !beat.ctaLabel) {
+    if (!beat.text && !beat.photoRef && !beat.kineticHero && !beat.promoBadge && !beat.ctaLabel) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "AdBeat must carry at least one of: text, photoRef, promoBadge, ctaLabel.",
+        message: "AdBeat must carry at least one of: text, photoRef, kineticHero, promoBadge, ctaLabel.",
         path: ["text"],
+      });
+    }
+    if (beat.photoRef && beat.kineticHero) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "AdBeat cannot carry both photoRef (photo-real style) and kineticHero (kinetic-hero style) — pick one visual style per beat.",
+        path: ["kineticHero"],
       });
     }
     if (beat.role === "direction" && !beat.ctaLabel && !beat.promoBadge) {
@@ -109,6 +179,7 @@ export type AdBeat = z.infer<typeof AdBeat>;
 export const AdDocument = z.object({
   schemaVersion: z.literal(2),
   templateId: AdTemplateId,
+  visualStyle: AdVisualStyle,
   platform: AdPlatform,
   voice: z.string().min(1),
   durationSeconds: z.number().positive(),
@@ -151,6 +222,9 @@ export const AdRequestSchema = z
     // planner must not invent one (see adPlanning.ts); the CTA label alone
     // ("Shop now") still stands without a URL to attach it to.
     websiteUrl: z.string().optional(),
+    // Omit to let the planner pick per product (see adPlanning.ts) — most
+    // callers should leave this unset.
+    visualStyle: AdVisualStyle.optional(),
     platform: AdPlatform,
     // "auto" defers to the planner's own judgment against AD_DURATION_TIERS.
     durationSeconds: z.union([z.number().positive(), z.literal("auto")]).default("auto"),
