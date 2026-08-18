@@ -318,14 +318,24 @@ export async function planScenesFromScript(
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await client.messages.create({
       model,
-      // 1536, then 4096, both proved too tight and crashed real renders
-      // mid-JSON — the "illustrate every drawable beat" density rule, the
-      // longer imageConcept cap (now 600 chars), and Sonnet's generally
-      // chattier structured output all push a real ~90s plan with many
-      // composed scenes (each with several of its own imageConcept slots)
-      // well past a moderate cap. Generous headroom, not a tuned number —
-      // this is a cap, not a cost driver on its own.
-      max_tokens: 8192,
+      // 1536, then 4096, then 8192 all proved too tight and crashed real
+      // renders mid-JSON — the "illustrate every drawable beat" density
+      // rule, the longer imageConcept cap (now 600 chars), Sonnet's
+      // generally chattier structured output, and now adaptive thinking's
+      // own token spend (billed as output tokens, sharing this same cap)
+      // all push a real ~90s plan well past a moderate ceiling. Generous
+      // headroom, not a tuned number — this is a cap, not a cost driver.
+      max_tokens: 16000,
+      // Scene planning is exactly the kind of task adaptive thinking is
+      // for — juggling timing, template choice, character continuity, and
+      // full narration coverage all at once, then producing one internally
+      // consistent JSON plan. On Sonnet 5 this is the only "on" mode
+      // (budget_tokens is removed/400); temperature/top_p/top_k must stay
+      // unset — they 400 once thinking is active. effort is the real
+      // depth knob; "high" trades a bit more cost/latency for the kind of
+      // multi-constraint reasoning this task actually needs.
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
       system,
       messages,
     });
