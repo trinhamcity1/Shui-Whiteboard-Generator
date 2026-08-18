@@ -6,6 +6,7 @@ import { initializeApp, getApps, cert, applicationDefault } from "firebase-admin
 import { getFirestore, Timestamp, FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { JobCost } from "../cost/index";
 import type { SceneDocumentRequest } from "../pipeline/resolveSceneDocument";
+import type { AdRequest } from "../schema/ad";
 
 export type JobStatus = "queued" | "rendering" | "ready" | "failed";
 
@@ -17,7 +18,7 @@ export interface JobRecord {
   title?: string;
   resultUrl?: string;
   cost?: JobCost;
-  request: SceneDocumentRequest;
+  request: SceneDocumentRequest | AdRequest;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;

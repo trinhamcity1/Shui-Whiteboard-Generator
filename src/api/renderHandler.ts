@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { getJob, updateJob } from "../storage/firestore";
 import { renderSceneDocumentJob } from "../pipeline/renderJob";
+import { renderAdJob } from "../pipeline/renderAdJob";
 import type { RenderJobPayload } from "../queue/types";
 
 /**
@@ -30,8 +31,28 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
     await fs.mkdir(outputDir, { recursive: true });
     const outputLocation = path.join(outputDir, `${job.id}.mp4`);
 
+    const isAdJob = (job.request as { mode?: string }).mode === "ad";
+
+    if (isAdJob) {
+      const result = await renderAdJob({
+        request: job.request,
+        apiKey,
+        rootDir,
+        outputLocation,
+        uploadKey: `jobs/${job.id}.mp4`,
+        audioFileName: `tts-ad-${job.id}.mp3`,
+      });
+
+      if (!result.uploadUrl) {
+        throw new Error(result.uploadError ?? "R2 upload failed with no error message.");
+      }
+
+      await updateJob(job.id, { status: "ready", resultUrl: result.uploadUrl, cost: result.jobCost });
+      return;
+    }
+
     const result = await renderSceneDocumentJob({
-      request: job.request,
+      request: job.request as Parameters<typeof renderSceneDocumentJob>[0]["request"],
       apiKey,
       rootDir,
       outputLocation,

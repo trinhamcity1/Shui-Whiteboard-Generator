@@ -1,9 +1,12 @@
 import React from "react";
 import { Composition, staticFile } from "remotion";
 import { SceneRenderer, type SceneRendererProps } from "./compositions/SceneRenderer";
+import { AdRenderer, type AdRendererProps } from "./compositions/AdRenderer";
 import type { SceneDocument } from "../schema/scene";
+import type { AdDocument } from "../schema/ad";
 import { SketchDiagram, type SketchDiagramProps } from "./components/SketchDiagram";
 import { BuildingCompositeTest } from "./components/BuildingCompositeTest";
+import { getPlatformPreset } from "./ad/platformPresets";
 
 const FPS = 30;
 const VERTICAL = { width: 1080, height: 1920 };
@@ -11,6 +14,19 @@ const HORIZONTAL = { width: 1920, height: 1080 };
 
 export type SceneInputProps = SceneRendererProps & Record<string, unknown> & {
   totalDurationSeconds: number;
+};
+
+export type AdInputProps = AdRendererProps & Record<string, unknown>;
+
+const DEFAULT_AD_DOCUMENT: AdDocument = {
+  schemaVersion: 2,
+  templateId: "problem-solution",
+  platform: "instagram",
+  voice: "",
+  durationSeconds: 10,
+  targetAudience: "",
+  productImages: [{ url: "" }],
+  beats: [],
 };
 
 const DEFAULT_SCENE_DOCUMENT: SceneDocument = {
@@ -61,6 +77,30 @@ export function RemotionRoot() {
             durationInFrames: Math.max(1, Math.round(totalDurationSeconds * FPS)),
             width: dimensions.width,
             height: dimensions.height,
+          };
+        }}
+      />
+      <Composition
+        id="AdRenderer"
+        component={AdRenderer}
+        fps={FPS}
+        width={VERTICAL.width}
+        height={VERTICAL.height}
+        durationInFrames={FPS * 30}
+        defaultProps={{
+          adDocument: DEFAULT_AD_DOCUMENT,
+          audioFileName: "tts-audio.mp3",
+        } satisfies AdInputProps}
+        calculateMetadata={async ({ props }) => {
+          const { adDocument } = props as AdInputProps;
+          const preset = getPlatformPreset(adDocument.platform);
+          const lastBeat = adDocument.beats[adDocument.beats.length - 1];
+          const totalDurationSeconds = lastBeat ? lastBeat.atSeconds + lastBeat.durationSeconds : adDocument.durationSeconds;
+          return {
+            durationInFrames: Math.max(1, Math.round(totalDurationSeconds * preset.fps)),
+            width: preset.width,
+            height: preset.height,
+            fps: preset.fps,
           };
         }}
       />
