@@ -17,7 +17,10 @@ const AD_REQUEST = {
   productDescription:
     "Insta360 GO 3 — a mini detachable action camera with a flip-out touchscreen for framing selfies and POV shots.",
   productImages: [
-    { url: "https://static.bhphoto.com/images/multiple_images/images500x500/1687855733_IMG_2027606.jpg", label: "camera with screen, plain background" },
+    { url: "https://static.bhphoto.com/images/multiple_images/images500x500/1687855733_IMG_2027606.jpg", label: "front lens, screen closed, plain background" },
+    { url: "https://static.bhphoto.com/images/multiple_images/images500x500/1687855733_IMG_2027607.jpg", label: "flip-up touchscreen showing a selfie photo, plain background" },
+    { url: "https://static.bhphoto.com/images/multiple_images/images500x500/1687855733_IMG_2027617.jpg", label: "detached capsule lens only, vertical pill shape, plain background" },
+    { url: "https://static.bhphoto.com/images/multiple_images/images500x500/1768916595_IMG_2027609.jpg", label: "front lens angle, logo visible, plain background" },
   ],
   visualStyle: "kinetic-hero" as const,
   platform: "instagram" as const,

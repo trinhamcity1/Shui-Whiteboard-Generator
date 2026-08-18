@@ -140,6 +140,7 @@ Rules:
   guess a plausible-looking product page. If none was given, omit "ctaUrl" entirely; the ctaLabel alone (e.g. "Shop
   now") is still a complete, valid direction beat without a link attached.
 - Only reference "imageIndex"/"productImageIndex" values that exist in the ${request.productImages.length} image(s) actually given.
+${request.productImages.length > 1 ? `- ${request.productImages.length} product images were given — actually use more than one of them across the beats (different angles/configurations read as a real, considered product shoot, not the same single photo recycled through every beat). Only reuse the same index across beats when the images are genuinely near-duplicates and there's no better fit for a given beat.` : ""}
 - Do not add narration text to every beat — a beat can be pure visual (photoRef/kineticHero only) or pure CTA (ctaLabel only) with no spoken line.
 
 Business: ${request.businessName} (${request.businessType})
