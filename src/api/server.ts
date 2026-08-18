@@ -6,6 +6,7 @@ import { requireApiKey } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
 import { errorHandler } from "./middleware/errorHandler";
 import { videosRouter } from "./routes/videos";
+import { assetsRouter } from "./routes/assets";
 import { internalRouter } from "./routes/internal";
 import { DevQueue, setDevQueueHandler } from "../queue/devQueue";
 import { CloudTasksQueue, loadCloudTasksConfigFromEnv } from "../queue/cloudTasksQueue";
@@ -33,6 +34,7 @@ export function buildServer(): Express {
   });
 
   app.use("/v1", requireApiKey, rateLimit, videosRouter(queue));
+  app.use("/v1", requireApiKey, rateLimit, assetsRouter());
   app.use(internalRouter(ROOT));
 
   app.use(errorHandler);

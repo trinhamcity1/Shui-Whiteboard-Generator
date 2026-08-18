@@ -25,13 +25,14 @@ export interface RenderAdJobResult {
  */
 export async function renderAdJob(args: {
   request: unknown;
+  ownerApiKeyId: string;
   apiKey: string;
   rootDir: string;
   outputLocation: string;
   uploadKey: string;
   audioFileName?: string;
 }): Promise<RenderAdJobResult> {
-  const { adDocument, adPlanning } = await resolveAdDocument(args.request);
+  const { adDocument, adPlanning } = await resolveAdDocument(args.request, args.ownerApiKeyId, { apiKey: process.env.ANTHROPIC_API_KEY });
 
   // Beats with spoken narration, concatenated in plan order, form the full
   // TTS script — a beat with no "text" (a pure-visual or pure-CTA beat)

@@ -36,6 +36,7 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
     if (isAdJob) {
       const result = await renderAdJob({
         request: job.request,
+        ownerApiKeyId: job.apiKeyId,
         apiKey,
         rootDir,
         outputLocation,

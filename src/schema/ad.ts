@@ -121,13 +121,24 @@ export const AdDocument = z.object({
 });
 export type AdDocument = z.infer<typeof AdDocument>;
 
+// A caller either references a photo already uploaded via POST
+// /assets/upload (assetId — resolved with an ownership check at render
+// time, since the api key that submits this job may not be the one that
+// uploaded it) or supplies a raw url directly (e.g. for testing, or a
+// publicly hosted photo). Never both on the same entry.
+export const ProductImageRef = z.union([
+  z.object({ assetId: z.string().min(1), label: z.string().optional() }),
+  z.object({ url: z.string().min(1), label: z.string().optional() }),
+]);
+export type ProductImageRef = z.infer<typeof ProductImageRef>;
+
 export const AdRequestSchema = z
   .object({
     mode: z.literal("ad"),
     businessName: z.string().min(1),
     businessType: z.string().min(1),
     productDescription: z.string().min(1),
-    productImages: z.array(z.object({ url: z.string(), label: z.string().optional() })).min(1),
+    productImages: z.array(ProductImageRef).min(1),
     promotion: z
       .object({
         description: z.string(),

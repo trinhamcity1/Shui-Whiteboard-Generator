@@ -229,6 +229,44 @@ export async function deleteLibraryAsset(id: string): Promise<void> {
   await db.collection("assetLibrary").doc(id).delete();
 }
 
+// A business's own uploaded photo, for the Ads product. Ownership-scoped
+// to apiKeyId — the same boundary every job already uses — rather than a
+// new user/profile concept: an api key already IS the account today, and
+// this slots under a real login system later without changing shape (a
+// logged-in session just resolves to the same apiKeyId it does now).
+export interface AdAssetRecord {
+  id: string;
+  apiKeyId: string;
+  r2Key: string;
+  url: string;
+  label?: string;
+  contentType: string;
+  createdAt: number;
+}
+
+export async function createAdAsset(record: AdAssetRecord): Promise<void> {
+  const db = getDb();
+  await db.collection("adAssets").doc(record.id).set(record);
+}
+
+export async function getAdAsset(id: string): Promise<AdAssetRecord | null> {
+  const db = getDb();
+  const doc = await db.collection("adAssets").doc(id).get();
+  if (!doc.exists) return null;
+  return doc.data() as AdAssetRecord;
+}
+
+export async function listAdAssetsForKey(apiKeyId: string): Promise<AdAssetRecord[]> {
+  const db = getDb();
+  const snapshot = await db.collection("adAssets").where("apiKeyId", "==", apiKeyId).get();
+  return snapshot.docs.map((d) => d.data() as AdAssetRecord);
+}
+
+export async function deleteAdAsset(id: string): Promise<void> {
+  const db = getDb();
+  await db.collection("adAssets").doc(id).delete();
+}
+
 export async function listLibraryAssets(tier?: string): Promise<LibraryAssetRecord[]> {
   const db = getDb();
   let query: FirebaseFirestore.Query = db.collection("assetLibrary");
