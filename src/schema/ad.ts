@@ -118,6 +118,12 @@ export const KineticProp = z.object({
   driftDistancePx: z.number().nonnegative().default(120),
   sizePx: z.number().positive().default(48),
   delaySeconds: z.number().nonnegative().default(0),
+  // Continuous spin while drifting, in degrees/second — 0 is a valid,
+  // common choice (a still sparkle shouldn't necessarily spin), but a
+  // planner reaching for a busier/more energetic beat can set this to
+  // make individual props tumble instead of just translating in a
+  // straight line.
+  rotateSpeedDegPerSec: z.number().default(0),
 });
 export type KineticProp = z.infer<typeof KineticProp>;
 
@@ -130,7 +136,10 @@ export const KineticHeroSpec = z.object({
   backgroundColorFrom: z.string(),
   backgroundColorTo: z.string(),
   title: z.string(),
-  props: z.array(KineticProp).max(12),
+  // Raised from an earlier, more conservative cap — the planner is
+  // explicitly encouraged (see adPlanning.ts) to go denser when it judges
+  // the product/brand calls for it, rather than defaulting sparse.
+  props: z.array(KineticProp).max(24),
 });
 export type KineticHeroSpec = z.infer<typeof KineticHeroSpec>;
 

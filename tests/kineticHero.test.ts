@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AdDocument } from "../src/schema/ad";
-import { computePropOffset } from "../src/render/ad/KineticHero";
+import { computePropOffset, computePropRotation } from "../src/render/ad/KineticHero";
 
 const baseDocument = {
   schemaVersion: 2,
@@ -108,5 +108,20 @@ describe("computePropOffset", () => {
   it("is fully opaque well after the fade-in window", () => {
     const { opacity } = computePropOffset(90, 0, 90, 0, 0, 100);
     expect(opacity).toBeCloseTo(1);
+  });
+});
+
+describe("computePropRotation", () => {
+  it("stays at 0 before the prop's delay elapses", () => {
+    expect(computePropRotation(10, 0, 30, 30, 180)).toBe(0);
+  });
+
+  it("accumulates rotation proportional to elapsed time after the delay", () => {
+    // 30fps, drift starts at frame 30, rotateSpeed 90deg/s -> at frame 60 (1s after drift start), expect 90deg.
+    expect(computePropRotation(60, 0, 30, 30, 90)).toBeCloseTo(90);
+  });
+
+  it("never rotates when rotateSpeedDegPerSec is 0", () => {
+    expect(computePropRotation(300, 0, 0, 30, 0)).toBe(0);
   });
 });

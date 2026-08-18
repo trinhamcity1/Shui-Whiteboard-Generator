@@ -95,8 +95,10 @@ Output ONLY a JSON object, no prose, no markdown fences:
       "kineticHero": { "productImageIndex": number, "backgroundColorFrom": string (hex), "backgroundColorTo": string (hex),
         "title": string (a SHORT, bold headline — 1-4 words, e.g. "FRESH ORANGE" — this is a graphic design
         element, not a caption), "props": [ { "kind": one of the prop kinds below, "startX": 0-1, "startY": 0-1,
-        "driftAngleDeg": number, "driftDistancePx": number, "sizePx": number, "delaySeconds": number }, ... up to
-        8-10 props ] } (optional — ONLY when visualStyle is "kinetic-hero"),
+        "driftAngleDeg": number, "driftDistancePx": number, "sizePx": number, "delaySeconds": number,
+        "rotateSpeedDegPerSec": number (0 for a still prop, nonzero to make it tumble while it drifts — use this
+        for extra energy, not every prop needs it) }, ... up to 24 props ] } (optional — ONLY when visualStyle is
+        "kinetic-hero"),
       "promoBadge": { "code": string, "description": string, "expiresAt": string } (optional — only on a promo/direction beat, only if a promotion was actually given),
       "ctaLabel": string (optional — a specific single-threaded CTA, e.g. "Order now", not "Learn more"),
       "ctaUrl": string (optional),
@@ -106,8 +108,15 @@ Output ONLY a JSON object, no prose, no markdown fences:
 }
 
 KINETIC PROP KINDS (pick whichever actually fit the product's category — never force fruit/ice onto a product
-they don't suit; pick 3-6 per beat, not all of them, and vary size/startX/startY/driftAngleDeg per prop so they
-don't overlap):
+they don't suit. Don't hold back on quantity: a sparse 2-3-prop beat reads as cheap and unfinished next to a real
+commercial spot. Use your own judgment on density per beat — an "attention" or "branding" beat usually earns the
+busiest treatment (this is the moment to impress), while a "direction"/CTA beat can be calmer so the CTA itself
+stays legible. Vary size/startX/startY/driftAngleDeg/rotateSpeedDegPerSec per prop so a denser field still reads
+as intentional, not overlapping clutter — that variation is what separates "busy and premium" from "busy and
+messy." If you judge a beat genuinely calls for more visual richness than this vocabulary covers on its own
+(a second smaller title line, an extra burst of the same prop kind timed slightly later, more props layered at
+different depths via size/delay), do it — you have real creative latitude here, this is not a strict minimum
+checklist to satisfy):
 - "citrus-slice", "droplet", "bubble": drinks, food, skincare with a "fresh/hydrating" angle.
 - "ice-cube": cold drinks specifically.
 - "leaf", "petal": natural/organic/wellness products.
