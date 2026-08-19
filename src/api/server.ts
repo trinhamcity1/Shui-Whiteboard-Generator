@@ -9,6 +9,7 @@ import { videosRouter } from "./routes/videos";
 import { assetsRouter } from "./routes/assets";
 import { keysRouter } from "./routes/keys";
 import { signupRouter } from "./routes/signup";
+import { pricingRouter } from "./routes/pricing";
 import { accountRouter } from "./routes/account";
 import { echoRouter } from "./routes/echo";
 import { internalRouter } from "./routes/internal";
@@ -43,6 +44,7 @@ export function buildServer(): Express {
   // their first one. Its rate limiter is applied inside the router,
   // scoped to just that route (see signup.ts).
   app.use("/v1", signupRouter());
+  app.use("/v1", pricingRouter());
 
   app.use("/v1", requireApiKey, rateLimit, videosRouter(queue));
   app.use("/v1", requireApiKey, rateLimit, assetsRouter());
