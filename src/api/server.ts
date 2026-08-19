@@ -9,10 +9,12 @@ import { videosRouter } from "./routes/videos";
 import { assetsRouter } from "./routes/assets";
 import { keysRouter } from "./routes/keys";
 import { signupRouter } from "./routes/signup";
+import { echoRouter } from "./routes/echo";
 import { internalRouter } from "./routes/internal";
-import { DevQueue, setDevQueueHandler } from "../queue/devQueue";
+import { DevQueue, setDevQueueHandler, setDevEchoQueueHandler } from "../queue/devQueue";
 import { CloudTasksQueue, loadCloudTasksConfigFromEnv } from "../queue/cloudTasksQueue";
 import { handleRenderJob } from "./renderHandler";
+import { handleEchoTrainingJob } from "./echoTrainHandler";
 import type { JobQueue } from "../queue/types";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +29,7 @@ export function buildServer(): Express {
     ? new CloudTasksQueue(loadCloudTasksConfigFromEnv())
     : (() => {
         setDevQueueHandler((payload) => handleRenderJob(payload, ROOT));
+        setDevEchoQueueHandler((payload) => handleEchoTrainingJob(payload));
         console.log("Queue: DevQueue (in-process, local dev only — set CLOUD_TASKS_QUEUE to use real Cloud Tasks).");
         return new DevQueue();
       })();
@@ -43,6 +46,7 @@ export function buildServer(): Express {
   app.use("/v1", requireApiKey, rateLimit, videosRouter(queue));
   app.use("/v1", requireApiKey, rateLimit, assetsRouter());
   app.use("/v1", requireApiKey, rateLimit, keysRouter());
+  app.use("/v1", requireApiKey, rateLimit, echoRouter(queue));
   app.use(internalRouter(ROOT));
 
   app.use(errorHandler);

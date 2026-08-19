@@ -152,7 +152,17 @@ function collectConceptTargets(sceneDocument: SceneDocument): ConceptTarget[] {
  */
 export async function resolveImages(
   sceneDocument: SceneDocument,
-  opts: { provider?: ImageProvider; orientation: "vertical" | "horizontal" },
+  opts: {
+    provider?: ImageProvider;
+    orientation: "vertical" | "horizontal";
+    /** Echo mode (a customer's private trained style) must never reuse or
+     * promote into the SHARED asset library — see cache.ts's
+     * cacheProviderDiscriminator and echoTypes.ts's own comment on why.
+     * Defaults to true for the product's own default trained-style
+     * provider; set false explicitly when opts.provider is an Echo
+     * model's TrainedStyleImageProvider. */
+    useSharedLibraryExpansion?: boolean;
+  },
 ): Promise<ImageResolutionResult> {
   // Revision-2 Layer 1: assetId is a registry lookup — $0, no live API
   // call — and resolves first, since it's the default path for any
@@ -188,7 +198,8 @@ export async function resolveImages(
   // time. Any other provider (recraft/flux, used only by direct
   // provider-comparison scripts, never the real pipeline default) keeps
   // the simple cache-only path.
-  const useLibraryExpansion = opts.provider instanceof TrainedStyleImageProvider;
+  const useLibraryExpansion =
+    opts.provider instanceof TrainedStyleImageProvider && (opts.useSharedLibraryExpansion ?? true);
 
   for (let i = 0; i < pending.length; i += CONCURRENCY) {
     const batch = pending.slice(i, i + CONCURRENCY);

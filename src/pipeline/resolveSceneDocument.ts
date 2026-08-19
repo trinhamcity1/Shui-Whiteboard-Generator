@@ -4,10 +4,14 @@ import { planScenesFromScript } from "../schema/planning";
 import { writeScriptFromTopic } from "../schema/scriptWriting";
 import { getImageProvider, defaultImageProviderName, type ImageProviderName } from "../images/index";
 import { resolveImages, type ImageResolutionResult } from "../images/resolveImages";
+import { TrainedStyleImageProvider } from "../images/trainedStyle";
+import { getEchoModel } from "../storage/firestore";
 
 export interface PreAuthoredRequest {
   scenes: unknown; // validated against SceneDocument below
   imageProvider?: ImageProviderName;
+  /** Pyramidion's Echo model: use this customer's own trained style instead of imageProvider/the shared library. Mutually exclusive with imageProvider. */
+  echoModelId?: string;
 }
 
 export interface ScriptOnlyRequest {
@@ -17,6 +21,7 @@ export interface ScriptOnlyRequest {
   orientation?: "vertical" | "horizontal";
   backgroundTrack?: string;
   imageProvider?: ImageProviderName;
+  echoModelId?: string;
 }
 
 /** The "advanced" input tier: no script at all, just a topic — expanded
@@ -30,6 +35,7 @@ export interface TopicRequest {
   orientation?: "vertical" | "horizontal";
   backgroundTrack?: string;
   imageProvider?: ImageProviderName;
+  echoModelId?: string;
 }
 
 export type SceneDocumentRequest = PreAuthoredRequest | ScriptOnlyRequest | TopicRequest;
@@ -40,6 +46,7 @@ const SharedScriptFields = {
   orientation: z.enum(["vertical", "horizontal"]).optional(),
   backgroundTrack: z.string().optional(),
   imageProvider: z.enum(["recraft", "flux", "trained-style"]).optional(),
+  echoModelId: z.string().min(1).optional(),
 };
 
 export const ScriptOnlyRequestSchema = z
@@ -95,6 +102,7 @@ function needsImageResolution(sceneDocument: SceneDocument): boolean {
 async function resolveImagesIfNeeded(
   sceneDocument: SceneDocument,
   imageProvider: ImageProviderName | undefined,
+  echoModelId?: string,
 ): Promise<ImageResolutionResult | undefined> {
   if (!needsImageResolution(sceneDocument)) return undefined;
 
@@ -106,7 +114,27 @@ async function resolveImagesIfNeeded(
       (action.imageConcept && !action.imageUrl) ||
       (action.composition && Object.values(action.composition.slots).some((slot) => slot.imageConcept && !slot.imageUrl)),
   );
-  const provider = needsLiveProvider ? getImageProvider(imageProvider ?? defaultImageProviderName()) : undefined;
+
+  if (!needsLiveProvider) {
+    return resolveImages(sceneDocument, { orientation: sceneDocument.orientation });
+  }
+
+  if (echoModelId) {
+    const echoModel = await getEchoModel(echoModelId);
+    if (!echoModel) throw new Error(`echoModelId "${echoModelId}" was not found.`);
+    if (echoModel.status !== "ready" || !echoModel.styleModel) {
+      throw new Error(`Echo model "${echoModelId}" is not ready yet (status: "${echoModel.status}").`);
+    }
+    const falApiKey = process.env.FLUX_API_KEY;
+    if (!falApiKey) throw new Error("FLUX_API_KEY is not set — required to generate with an Echo model.");
+    const provider = new TrainedStyleImageProvider(falApiKey, echoModel.styleModel);
+    // useSharedLibraryExpansion: false — an Echo model's generations must
+    // never reuse or get promoted into the shared civics/business asset
+    // library. See resolveImages.ts's own comment on this flag.
+    return resolveImages(sceneDocument, { provider, orientation: sceneDocument.orientation, useSharedLibraryExpansion: false });
+  }
+
+  const provider = getImageProvider(imageProvider ?? defaultImageProviderName());
   return resolveImages(sceneDocument, { provider, orientation: sceneDocument.orientation });
 }
 
@@ -144,7 +172,7 @@ export async function resolveSceneDocument(request: SceneDocumentRequest): Promi
 
   if (isPreAuthored(request)) {
     const sceneDocument = parseSceneDocument(request.scenes);
-    const imageResolution = await resolveImagesIfNeeded(sceneDocument, request.imageProvider);
+    const imageResolution = await resolveImagesIfNeeded(sceneDocument, request.imageProvider, request.echoModelId);
     return { sceneDocument, imageResolution };
   }
 
@@ -188,7 +216,7 @@ export async function resolveSceneDocument(request: SceneDocumentRequest): Promi
     actions: planResult.actions,
   });
 
-  const imageResolution = await resolveImagesIfNeeded(sceneDocument, scriptRequest.imageProvider);
+  const imageResolution = await resolveImagesIfNeeded(sceneDocument, scriptRequest.imageProvider, scriptRequest.echoModelId);
 
   return {
     sceneDocument,

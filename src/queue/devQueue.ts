@@ -1,12 +1,19 @@
-import type { JobQueue, RenderJobPayload } from "./types";
+import type { JobQueue, RenderJobPayload, EchoTrainingJobPayload } from "./types";
 
 type RenderHandler = (payload: RenderJobPayload) => Promise<void>;
+type EchoTrainingHandler = (payload: EchoTrainingJobPayload) => Promise<void>;
 
 let handler: RenderHandler | undefined;
+let echoHandler: EchoTrainingHandler | undefined;
 
 /** Wired up once at server startup to point at the /internal/render logic. */
 export function setDevQueueHandler(fn: RenderHandler): void {
   handler = fn;
+}
+
+/** Wired up once at server startup to point at the /internal/echo-train logic. */
+export function setDevEchoQueueHandler(fn: EchoTrainingHandler): void {
+  echoHandler = fn;
 }
 
 /**
@@ -25,6 +32,18 @@ export class DevQueue implements JobQueue {
     setImmediate(() => {
       activeHandler(payload).catch((err) => {
         console.error(`DevQueue: render job ${payload.jobId} failed:`, err);
+      });
+    });
+  }
+
+  async enqueueEchoTrainingJob(payload: EchoTrainingJobPayload): Promise<void> {
+    if (!echoHandler) {
+      throw new Error("DevQueue has no Echo training handler wired up — call setDevEchoQueueHandler() at startup.");
+    }
+    const activeHandler = echoHandler;
+    setImmediate(() => {
+      activeHandler(payload).catch((err) => {
+        console.error(`DevQueue: Echo training job ${payload.echoModelId} failed:`, err);
       });
     });
   }

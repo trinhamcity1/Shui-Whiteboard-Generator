@@ -8,6 +8,8 @@ import type { JobCost } from "../cost/index";
 import type { SceneDocumentRequest } from "../pipeline/resolveSceneDocument";
 import type { AdRequest } from "../schema/ad";
 import { appendLocalApiKey, getLocalApiKey, listLocalApiKeysForOwner, setLocalApiKeyActive } from "./localApiKeys";
+import { upsertLocalEchoModel, getLocalEchoModel, listLocalEchoModelsForOwner } from "./localEchoModels";
+import type { EchoModelRecord } from "../images/styleModel/echoTypes";
 
 export type JobStatus = "queued" | "rendering" | "ready" | "failed";
 
@@ -364,6 +366,63 @@ export async function getRecraftStyleId(characterKey: string): Promise<string | 
 export async function saveRecraftStyleId(characterKey: string, styleId: string): Promise<void> {
   const db = getDb();
   await db.collection("recraftStyles").doc(characterKey).set({ styleId, createdAt: Date.now() });
+}
+
+export async function createEchoModel(record: EchoModelRecord): Promise<void> {
+  if (isFirestoreKnownUnreachable()) {
+    upsertLocalEchoModel(record);
+    return;
+  }
+  try {
+    const db = getDb();
+    await db.collection("echoModels").doc(record.id).set(record);
+  } catch {
+    markFirestoreUnreachable();
+    upsertLocalEchoModel(record);
+  }
+}
+
+export async function getEchoModel(id: string): Promise<EchoModelRecord | null> {
+  if (isFirestoreKnownUnreachable()) return getLocalEchoModel(id);
+  try {
+    const db = getDb();
+    const doc = await db.collection("echoModels").doc(id).get();
+    if (!doc.exists) return null;
+    return doc.data() as EchoModelRecord;
+  } catch {
+    markFirestoreUnreachable();
+    return getLocalEchoModel(id);
+  }
+}
+
+export async function listEchoModelsForOwner(ownerLabel: string): Promise<EchoModelRecord[]> {
+  if (isFirestoreKnownUnreachable()) return listLocalEchoModelsForOwner(ownerLabel);
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("echoModels").where("ownerLabel", "==", ownerLabel).get();
+    return snapshot.docs.map((d) => d.data() as EchoModelRecord);
+  } catch {
+    markFirestoreUnreachable();
+    return listLocalEchoModelsForOwner(ownerLabel);
+  }
+}
+
+export async function updateEchoModel(id: string, patch: Partial<Omit<EchoModelRecord, "id" | "createdAt">>): Promise<void> {
+  const updated = { ...patch, updatedAt: Date.now() };
+  if (isFirestoreKnownUnreachable()) {
+    const existing = getLocalEchoModel(id);
+    if (!existing) return;
+    upsertLocalEchoModel({ ...existing, ...updated });
+    return;
+  }
+  try {
+    const db = getDb();
+    await db.collection("echoModels").doc(id).set(updated, { merge: true });
+  } catch {
+    markFirestoreUnreachable();
+    const existing = getLocalEchoModel(id);
+    if (existing) upsertLocalEchoModel({ ...existing, ...updated });
+  }
 }
 
 export { Timestamp };

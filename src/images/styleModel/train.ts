@@ -30,9 +30,14 @@ export async function trainStyleModel(args: {
   apiKey: string;
   curatedDir: string;
   outDir: string;
-  plan: "a" | "b";
+  plan: "a" | "b" | "echo";
+  /** Overrides TRIGGER_WORD — the Echo model feature needs a distinct
+   * trigger word per customer model rather than every trained LoRA sharing
+   * the one word the product's own default style was trained under. */
+  triggerWord?: string;
 }): Promise<StyleModelVersion> {
   const { apiKey, curatedDir, outDir, plan } = args;
+  const triggerWord = args.triggerWord ?? TRIGGER_WORD;
   fal.config({ credentials: apiKey });
 
   const curatedFiles = fs.readdirSync(curatedDir).filter((f) => f.endsWith(".png"));
@@ -50,7 +55,7 @@ export async function trainStyleModel(args: {
   const result = await fal.subscribe(TRAINING_ENDPOINT, {
     input: {
       images_data_url: zipUrl,
-      trigger_word: TRIGGER_WORD,
+      trigger_word: triggerWord,
     },
     logs: true,
     onQueueUpdate: (update) => {
@@ -73,7 +78,7 @@ export async function trainStyleModel(args: {
   const version: StyleModelVersion = {
     version: `v1-${new Date().toISOString().slice(0, 10)}`,
     loraUrl,
-    triggerWord: TRIGGER_WORD,
+    triggerWord,
     plan,
     curatedCount: curatedFiles.length,
     trainingCostUsd: 0, // fal.ai doesn't return real-time billing in the response; see the account dashboard for the actual charge.

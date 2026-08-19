@@ -17,7 +17,7 @@ export interface StyleModelVersion {
   version: string; // e.g. "v1-2026-08-14"
   loraUrl: string;
   triggerWord: string;
-  plan: "a" | "b";
+  plan: "a" | "b" | "echo";
   curatedCount: number;
   trainingCostUsd: number;
   trainedAt: string;

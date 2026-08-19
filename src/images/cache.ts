@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { GeneratedImage, ImageProvider } from "./types";
+import { TrainedStyleImageProvider } from "./trainedStyle";
 import { uploadBufferToR2, getPresignedUrlForKey } from "../storage/r2";
 import {
   getImageCacheEntry,
@@ -12,6 +13,16 @@ import {
 export function cacheKeyFor(provider: string, styleVariant: string, concept: string): string {
   const normalized = concept.trim().toLowerCase();
   return crypto.createHash("sha256").update(`${provider}:${styleVariant}:${normalized}`).digest("hex");
+}
+
+/** provider.name is the fixed literal "trained-style" for EVERY trained
+ * LoRA (the shared default model and every customer's private Echo
+ * model alike) — cacheKeyFor alone would let two different models
+ * collide on the same concept text. Folding in the trigger word (unique
+ * per model, since echoPipeline.ts mints one per Echo model) keeps their
+ * cache entries — and therefore their images — from ever mixing. */
+export function cacheProviderDiscriminator(provider: ImageProvider): string {
+  return provider instanceof TrainedStyleImageProvider ? `${provider.name}:${provider.styleModel.triggerWord}` : provider.name;
 }
 
 function extensionFor(contentType: string): string {
@@ -28,7 +39,7 @@ export async function resolveImage(
   concept: string,
   opts: { provider: ImageProvider; styleVariant: string; orientation: "vertical" | "horizontal" },
 ): Promise<GeneratedImage> {
-  const cacheKey = cacheKeyFor(opts.provider.name, opts.styleVariant, concept);
+  const cacheKey = cacheKeyFor(cacheProviderDiscriminator(opts.provider), opts.styleVariant, concept);
 
   // Same fallback discipline as the asset library (registryLookup.ts):
   // without real GCP credentials this cache is unreachable, so skip

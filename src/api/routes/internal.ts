@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { handleRenderJob } from "../renderHandler";
+import { handleEchoTrainingJob } from "../echoTrainHandler";
 
 /**
  * Not part of the public API surface — no x-api-key check. In production
@@ -26,6 +27,23 @@ export function internalRouter(rootDir: string): Router {
 
     await handleRenderJob({ jobId }, rootDir);
     res.status(200).json({ detail: "Rendered." });
+  });
+
+  router.post("/internal/echo-train", async (req, res) => {
+    const expectedSecret = process.env.INTERNAL_RENDER_SECRET;
+    if (expectedSecret && req.header("x-internal-secret") !== expectedSecret) {
+      res.status(401).json({ detail: "Missing or invalid internal secret." });
+      return;
+    }
+
+    const echoModelId = req.body?.echoModelId;
+    if (typeof echoModelId !== "string") {
+      res.status(400).json({ detail: "Missing echoModelId." });
+      return;
+    }
+
+    await handleEchoTrainingJob({ echoModelId });
+    res.status(200).json({ detail: "Trained." });
   });
 
   return router;
