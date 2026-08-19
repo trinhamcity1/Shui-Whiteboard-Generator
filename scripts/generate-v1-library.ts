@@ -42,19 +42,35 @@ async function main() {
 
   const versionPath = path.join(process.cwd(), "style-model-candidates", "style-model-version.json");
   const styleModel = JSON.parse(fs.readFileSync(versionPath, "utf-8")) as StyleModelVersion;
-  console.log(`Generating v1 library (${ASSET_MANIFEST.length} assets) through trained model ${styleModel.version}\n`);
+
+  // Incremental, not a full-rebuild-every-run script — this used to
+  // overwrite the whole registry from ASSET_MANIFEST on every run, which
+  // meant adding a handful of new manifest entries and re-running would
+  // silently re-spend real money regenerating every asset that already
+  // existed. Load whatever's already on disk, keep it as-is, and only
+  // pay for entries the registry doesn't have yet (--force regenerates
+  // everything, for when the trained style model itself changes).
+  const force = process.argv.includes("--force");
+  const registryPath = path.join(process.cwd(), "style-model-candidates", "v1-library-registry.json");
+  const existingRegistry: RegistryEntry[] = fs.existsSync(registryPath) ? JSON.parse(fs.readFileSync(registryPath, "utf-8")) : [];
+  const existingIds = new Set(existingRegistry.map((e) => e.id));
+  const toGenerate = force ? ASSET_MANIFEST : ASSET_MANIFEST.filter((e) => !existingIds.has(e.id));
+
+  console.log(
+    `Generating v1 library through trained model ${styleModel.version}: ${toGenerate.length} new asset(s), ${force ? 0 : existingIds.size} already present and kept as-is.\n`,
+  );
 
   const rawDir = path.join(process.cwd(), "style-model-candidates", "v1-library-raw");
   const finalDir = path.join(process.cwd(), "style-model-candidates", "v1-library");
   fs.mkdirSync(rawDir, { recursive: true });
   fs.mkdirSync(finalDir, { recursive: true });
 
-  const registry: RegistryEntry[] = [];
+  const registry: RegistryEntry[] = force ? [] : existingRegistry.filter((e) => ASSET_MANIFEST.some((m) => m.id === e.id));
   let totalCost = 0;
 
-  for (let i = 0; i < ASSET_MANIFEST.length; i++) {
-    const entry = ASSET_MANIFEST[i]!;
-    process.stdout.write(`[${i + 1}/${ASSET_MANIFEST.length}] ${entry.id}... `);
+  for (let i = 0; i < toGenerate.length; i++) {
+    const entry = toGenerate[i]!;
+    process.stdout.write(`[${i + 1}/${toGenerate.length}] ${entry.id}... `);
 
     const prompt = buildLibraryPrompt(entry, styleModel.triggerWord);
     const result = await fal.subscribe("fal-ai/flux-lora", {
@@ -106,10 +122,9 @@ async function main() {
     console.log("done");
   }
 
-  const registryPath = path.join(process.cwd(), "style-model-candidates", "v1-library-registry.json");
   fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2));
 
-  console.log(`\nGenerated ${registry.length} assets for $${totalCost.toFixed(2)}.`);
+  console.log(`\nGenerated ${toGenerate.length} new asset(s) for $${totalCost.toFixed(2)}. Registry now has ${registry.length} total.`);
   console.log(`Registry: ${registryPath}`);
   console.log(`Local images: ${finalDir}`);
 }

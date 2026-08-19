@@ -1,6 +1,10 @@
 import type { ImageProviderName } from "../types";
 
-export type AssetTier = "shared" | "civics";
+// "shared" = Universal (Phase 5 doc): every video, any customer, any
+// topic. Everything after "civics" is a Vertical tier — the handful of
+// explainer-video categories that show up across any audience, added one
+// at a time as the library grows past Shui's own civics content.
+export type AssetTier = "shared" | "civics" | "business";
 // "scene" (added after a real render batch) is a full illustrated backdrop
 // meant to be shown whole — a ship on the ocean, a forest, a palace
 // interior — as opposed to "character"/"prop", which are cutouts meant to

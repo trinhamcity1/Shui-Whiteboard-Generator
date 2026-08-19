@@ -54,7 +54,7 @@ describe("ASSET_MANIFEST", () => {
 
   it("every entry has a valid tier and role", () => {
     for (const entry of ASSET_MANIFEST) {
-      expect(["shared", "civics"]).toContain(entry.tier);
+      expect(["shared", "civics", "business"]).toContain(entry.tier);
       expect(["character", "prop"]).toContain(entry.role);
       expect(["recraft", "flux"]).toContain(entry.provider);
     }
@@ -86,7 +86,9 @@ describe("ASSET_MANIFEST", () => {
       if (!families.has(entry.characterFamily)) families.set(entry.characterFamily, new Set());
       families.get(entry.characterFamily)!.add(entry.id);
     }
-    expect(families.get("narrator")?.size).toBe(4);
+    // 4 original poses + 3 added to round the Universal tier out to 7 +
+    // 2 business-vertical poses reusing the same narrator identity = 9.
+    expect(families.get("narrator")?.size).toBe(9);
     expect(families.get("civics-judge")?.size).toBe(2);
     expect(families.get("civics-officer")?.size).toBe(2);
   });
