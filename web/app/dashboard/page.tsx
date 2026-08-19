@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import Link from "next/link";
 import { AccountCard } from "@/components/dashboard/AccountCard";
 import { KeysPanel } from "@/components/dashboard/KeysPanel";
+import { LedgerPanel } from "@/components/dashboard/LedgerPanel";
 import { GenerateForm } from "@/components/dashboard/GenerateForm";
 import { JobsList } from "@/components/dashboard/JobsList";
 import { EchoPanel } from "@/components/dashboard/EchoPanel";
@@ -70,13 +72,32 @@ export default function DashboardPage() {
 
           <div className="flex flex-col gap-6">
             <AccountCard account={account} />
-            <GenerateForm
-              apiKey={apiKey}
-              account={account}
-              echoModels={echoModels}
-              onQueued={() => setRefreshKey((k) => k + 1)}
-            />
-            <JobsList apiKey={apiKey} refreshKey={refreshKey} />
+
+            {account.uiAccess ? (
+              <>
+                <GenerateForm
+                  apiKey={apiKey}
+                  account={account}
+                  echoModels={echoModels}
+                  onQueued={() => setRefreshKey((k) => k + 1)}
+                />
+                <JobsList apiKey={apiKey} refreshKey={refreshKey} />
+              </>
+            ) : (
+              <div className="rounded-2xl border border-line bg-paper-raised p-6 text-sm text-ink-soft">
+                <p>
+                  Siltstone is API-only — there&apos;s no generate-here form. Call{" "}
+                  <code className="text-ink">POST /v1/videos/generate</code> directly; see the{" "}
+                  <Link href="/docs" className="font-semibold text-ink underline underline-offset-4">
+                    API docs
+                  </Link>{" "}
+                  for the request shape.
+                </p>
+              </div>
+            )}
+
+            <LedgerPanel apiKey={apiKey} />
+
             {account.echoAccess && (
               <EchoPanel apiKey={apiKey} models={echoModels} onChange={() => loadAccount(apiKey)} />
             )}
