@@ -7,6 +7,7 @@ import { getFirestore, Timestamp, FieldValue, type Firestore } from "firebase-ad
 import type { JobCost } from "../cost/index";
 import type { SceneDocumentRequest } from "../pipeline/resolveSceneDocument";
 import type { AdRequest } from "../schema/ad";
+import { appendLocalApiKey, getLocalApiKey, listLocalApiKeysForOwner, setLocalApiKeyActive } from "./localApiKeys";
 
 export type JobStatus = "queued" | "rendering" | "ready" | "failed";
 
@@ -26,7 +27,12 @@ export interface JobRecord {
 
 export interface ApiKeyRecord {
   id: string; // sha256 hash of the raw key — the doc ID itself, so lookup is O(1)
-  ownerLabel: string;
+  ownerLabel: string; // the signup email, for self-serve accounts — the account identity is "whichever keys share this ownerLabel"
+  // Last 4 characters of the raw key ("...a1b2") — the raw key itself is
+  // never stored anywhere retrievable, so the dashboard needs *something*
+  // to tell keys apart by. Never enough characters to be useful for
+  // brute-forcing the real key.
+  keyPreview: string;
   createdAt: number;
   isActive: boolean;
 }
@@ -103,27 +109,99 @@ export function hashApiKey(rawKey: string): string {
 }
 
 export async function getApiKeyByRawKey(rawKey: string): Promise<ApiKeyRecord | null> {
-  const db = getDb();
   const hashedKey = hashApiKey(rawKey);
-  const doc = await db.collection("apiKeys").doc(hashedKey).get();
-  if (!doc.exists) return null;
-  const data = doc.data()!;
-  return {
-    id: doc.id,
-    ownerLabel: data.ownerLabel,
-    createdAt: data.createdAt,
-    isActive: data.isActive !== false,
-  };
+  if (isFirestoreKnownUnreachable()) return getLocalApiKey(hashedKey);
+  try {
+    const db = getDb();
+    const doc = await db.collection("apiKeys").doc(hashedKey).get();
+    if (!doc.exists) return null;
+    const data = doc.data()!;
+    return {
+      id: doc.id,
+      ownerLabel: data.ownerLabel,
+      keyPreview: data.keyPreview,
+      createdAt: data.createdAt,
+      isActive: data.isActive !== false,
+    };
+  } catch {
+    markFirestoreUnreachable();
+    return getLocalApiKey(hashedKey);
+  }
 }
 
-export async function createApiKey(rawKey: string, ownerLabel: string): Promise<void> {
-  const db = getDb();
+export async function getApiKeyById(id: string): Promise<ApiKeyRecord | null> {
+  if (isFirestoreKnownUnreachable()) return getLocalApiKey(id);
+  try {
+    const db = getDb();
+    const doc = await db.collection("apiKeys").doc(id).get();
+    if (!doc.exists) return null;
+    const data = doc.data()!;
+    return { id: doc.id, ownerLabel: data.ownerLabel, keyPreview: data.keyPreview, createdAt: data.createdAt, isActive: data.isActive !== false };
+  } catch {
+    markFirestoreUnreachable();
+    return getLocalApiKey(id);
+  }
+}
+
+/** Every key sharing this ownerLabel (the signup email) — this IS "your account" in the minimal self-serve model, there's no separate account/user table. */
+export async function listApiKeysForOwner(ownerLabel: string): Promise<ApiKeyRecord[]> {
+  if (isFirestoreKnownUnreachable()) return listLocalApiKeysForOwner(ownerLabel);
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("apiKeys").where("ownerLabel", "==", ownerLabel).get();
+    return snapshot.docs.map((d) => {
+      const data = d.data();
+      return { id: d.id, ownerLabel: data.ownerLabel, keyPreview: data.keyPreview, createdAt: data.createdAt, isActive: data.isActive !== false };
+    });
+  } catch {
+    markFirestoreUnreachable();
+    return listLocalApiKeysForOwner(ownerLabel);
+  }
+}
+
+/** Soft-revoke — never hard-deleted, since past jobs still reference this key's id and should keep resolving for history/billing purposes. */
+export async function setApiKeyActive(id: string, isActive: boolean): Promise<void> {
+  if (isFirestoreKnownUnreachable()) {
+    setLocalApiKeyActive(id, isActive);
+    return;
+  }
+  try {
+    const db = getDb();
+    await db.collection("apiKeys").doc(id).set({ isActive }, { merge: true });
+  } catch {
+    markFirestoreUnreachable();
+    setLocalApiKeyActive(id, isActive);
+  }
+}
+
+export async function createApiKey(rawKey: string, ownerLabel: string): Promise<ApiKeyRecord> {
   const hashedKey = hashApiKey(rawKey);
-  await db.collection("apiKeys").doc(hashedKey).set({
+  const record: ApiKeyRecord = {
+    id: hashedKey,
     ownerLabel,
+    keyPreview: rawKey.slice(-4),
     createdAt: Date.now(),
     isActive: true,
-  });
+  };
+
+  if (isFirestoreKnownUnreachable()) {
+    appendLocalApiKey(record);
+    return record;
+  }
+  try {
+    const db = getDb();
+    await db.collection("apiKeys").doc(hashedKey).set({
+      ownerLabel: record.ownerLabel,
+      keyPreview: record.keyPreview,
+      createdAt: record.createdAt,
+      isActive: record.isActive,
+    });
+    return record;
+  } catch {
+    markFirestoreUnreachable();
+    appendLocalApiKey(record);
+    return record;
+  }
 }
 
 export async function createJob(job: Omit<JobRecord, "createdAt" | "updatedAt">): Promise<JobRecord> {

@@ -7,6 +7,8 @@ import { rateLimit } from "./middleware/rateLimit";
 import { errorHandler } from "./middleware/errorHandler";
 import { videosRouter } from "./routes/videos";
 import { assetsRouter } from "./routes/assets";
+import { keysRouter } from "./routes/keys";
+import { signupRouter } from "./routes/signup";
 import { internalRouter } from "./routes/internal";
 import { DevQueue, setDevQueueHandler } from "../queue/devQueue";
 import { CloudTasksQueue, loadCloudTasksConfigFromEnv } from "../queue/cloudTasksQueue";
@@ -33,8 +35,14 @@ export function buildServer(): Express {
     res.json({ status: "ok" });
   });
 
+  // The one route reachable with no x-api-key — it's how a stranger gets
+  // their first one. Its rate limiter is applied inside the router,
+  // scoped to just that route (see signup.ts).
+  app.use("/v1", signupRouter());
+
   app.use("/v1", requireApiKey, rateLimit, videosRouter(queue));
   app.use("/v1", requireApiKey, rateLimit, assetsRouter());
+  app.use("/v1", requireApiKey, rateLimit, keysRouter());
   app.use(internalRouter(ROOT));
 
   app.use(errorHandler);
