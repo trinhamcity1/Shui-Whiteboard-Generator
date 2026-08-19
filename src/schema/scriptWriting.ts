@@ -16,6 +16,11 @@ const INPUT_COST_PER_MTOK_USD = 3.0;
 const OUTPUT_COST_PER_MTOK_USD = 15.0;
 
 const DEFAULT_MODEL = "claude-sonnet-5";
+// Exported so billing/gate.ts's pre-render length/afford estimate uses the
+// exact same default this function falls back to — a topic-mode request
+// with no explicit targetDurationSeconds still produces a real ~60s video,
+// so the billing estimate must not silently treat it as zero-length.
+export const DEFAULT_TARGET_DURATION_SECONDS = 60;
 
 function buildSystemPrompt(targetDurationSeconds: number): string {
   const targetWords = Math.round(targetDurationSeconds * WORDS_PER_SECOND);
@@ -54,7 +59,7 @@ export async function writeScriptFromTopic(
     throw new Error("ANTHROPIC_API_KEY is not set — required for the topic-only path.");
   }
   const model = opts.model ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
-  const targetDurationSeconds = opts.targetDurationSeconds ?? 60;
+  const targetDurationSeconds = opts.targetDurationSeconds ?? DEFAULT_TARGET_DURATION_SECONDS;
 
   const client = new Anthropic({ apiKey });
   const response = await client.messages.create({

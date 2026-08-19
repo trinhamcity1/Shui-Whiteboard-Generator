@@ -1,10 +1,18 @@
 import type { ErrorRequestHandler } from "express";
 import { ApiError } from "../errors";
 import { SceneValidationError } from "../../schema/scene";
+import { InsufficientCreditsError } from "../../billing/types";
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ApiError) {
     res.status(err.statusCode).json({ detail: err.detail });
+    return;
+  }
+
+  if (err instanceof InsufficientCreditsError) {
+    res.status(402).json({
+      detail: `Insufficient credits: this needs ${err.required.toFixed(2)}, your account has ${err.available.toFixed(2)}.`,
+    });
     return;
   }
 

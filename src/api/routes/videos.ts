@@ -6,7 +6,17 @@ import { serializeJob } from "../serializers";
 import { ScriptOnlyRequestSchema, TopicRequestSchema, type SceneDocumentRequest } from "../../pipeline/resolveSceneDocument";
 import { parseSceneDocument } from "../../schema/scene";
 import { AdRequestSchema } from "../../schema/ad";
-import { createJob, getJob, listJobsForKey, updateJob, type JobRecord } from "../../storage/firestore";
+import { createJob, getJob, getApiKeyById, getOrCreateAccount, listJobsForKey, updateJob, type JobRecord } from "../../storage/firestore";
+import {
+  assertApiAccess,
+  assertEchoAccess,
+  assertLengthAllowed,
+  assertOrientationAllowed,
+  creditsPerMinuteFor,
+  estimateRequestMinutes,
+  resolveBillingMode,
+} from "../../billing/gate";
+import { InsufficientCreditsError } from "../../billing/types";
 import type { JobQueue } from "../../queue/types";
 
 export function videosRouter(queue: JobQueue): Router {
@@ -16,6 +26,11 @@ export function videosRouter(queue: JobQueue): Router {
     try {
       const body = req.body as Record<string, unknown>;
       const isAdRequest = body.mode === "ad";
+
+      const self = await getApiKeyById(req.apiKeyId!);
+      if (!self) throw new ApiError(401, "Missing or invalid x-api-key header.");
+      const account = await getOrCreateAccount(self.ownerLabel);
+      assertApiAccess(account.tier);
 
       if (isAdRequest) {
         // Ads have only one path (the planner always runs — there's no
@@ -51,8 +66,10 @@ export function videosRouter(queue: JobQueue): Router {
         // check (real validation happens after their LLM call(s), in the
         // async render worker) so `generate` never blocks on — or
         // double-pays for — a network call to the script writer or planner.
+        let narrationScriptForEstimate: string | undefined;
         if (hasScenes) {
-          parseSceneDocument(body.scenes); // throws SceneValidationError -> 422 via errorHandler
+          const parsed = parseSceneDocument(body.scenes); // throws SceneValidationError -> 422 via errorHandler
+          narrationScriptForEstimate = parsed.narrationScript;
         } else {
           const schema = hasTopic ? TopicRequestSchema : ScriptOnlyRequestSchema;
           const result = schema.safeParse(body);
@@ -61,6 +78,30 @@ export function videosRouter(queue: JobQueue): Router {
               422,
               result.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })),
             );
+          }
+          narrationScriptForEstimate = hasScript ? (result.data as { narrationScript: string }).narrationScript : undefined;
+        }
+
+        // Tier gating — feature access and rough length/afford checks, all
+        // before any real work (LLM calls, image generation, render) has
+        // started. The real charge always comes from the actual rendered
+        // duration afterward (renderHandler.ts) — this is a fast, cheap
+        // upper-bound check, not the final bill.
+        const mode = resolveBillingMode(body);
+        const creditsPerMinute = creditsPerMinuteFor(account.tier, mode); // throws 403 if this tier can't use topic mode
+        assertOrientationAllowed(account.tier, body.orientation as "vertical" | "horizontal" | undefined);
+        if (typeof body.echoModelId === "string") assertEchoAccess(account.tier);
+
+        const estimatedMinutes = estimateRequestMinutes({
+          mode,
+          narrationScript: narrationScriptForEstimate,
+          targetDurationSeconds: typeof body.targetDurationSeconds === "number" ? body.targetDurationSeconds : undefined,
+        });
+        if (estimatedMinutes > 0) {
+          assertLengthAllowed(account.tier, estimatedMinutes);
+          const estimatedCost = estimatedMinutes * creditsPerMinute;
+          if (account.creditBalance < estimatedCost) {
+            throw new InsufficientCreditsError(account.ownerLabel, estimatedCost, account.creditBalance);
           }
         }
       }

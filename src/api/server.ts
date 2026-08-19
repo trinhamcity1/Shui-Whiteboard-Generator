@@ -9,6 +9,7 @@ import { videosRouter } from "./routes/videos";
 import { assetsRouter } from "./routes/assets";
 import { keysRouter } from "./routes/keys";
 import { signupRouter } from "./routes/signup";
+import { accountRouter } from "./routes/account";
 import { echoRouter } from "./routes/echo";
 import { internalRouter } from "./routes/internal";
 import { DevQueue, setDevQueueHandler, setDevEchoQueueHandler } from "../queue/devQueue";
@@ -46,6 +47,7 @@ export function buildServer(): Express {
   app.use("/v1", requireApiKey, rateLimit, videosRouter(queue));
   app.use("/v1", requireApiKey, rateLimit, assetsRouter());
   app.use("/v1", requireApiKey, rateLimit, keysRouter());
+  app.use("/v1", requireApiKey, rateLimit, accountRouter());
   app.use("/v1", requireApiKey, rateLimit, echoRouter(queue));
   app.use(internalRouter(ROOT));
 

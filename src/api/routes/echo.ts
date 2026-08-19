@@ -6,10 +6,14 @@ import {
   createEchoModel,
   getApiKeyById,
   getEchoModel,
+  getOrCreateAccount,
   listEchoModelsForOwner,
   updateEchoModel,
 } from "../../storage/firestore";
 import { uploadBufferToR2 } from "../../storage/r2";
+import { assertEchoAccess } from "../../billing/gate";
+import { ECHO_RETRAIN_CREDITS, ECHO_TRAIN_CREDITS } from "../../billing/tiers";
+import { InsufficientCreditsError } from "../../billing/types";
 import type { EchoModelRecord } from "../../images/styleModel/echoTypes";
 import type { JobQueue } from "../../queue/types";
 
@@ -66,10 +70,11 @@ async function uploadReferenceImages(
  * Pyramidion-exclusive: upload 5-10 reference images of a customer's own
  * character/art style, kick off the async training pipeline (candidate
  * generation -> selection -> LoRA training — see echoPipeline.ts), and
- * check on / retrain the result. Billing (the 22-credit / 11-credit charge
- * from the pricing plan) is NOT enforced here yet — that's the credit
- * wallet, still to be built; this only gates the reference-count shape and
- * ownership.
+ * check on / retrain the result. The 22-credit / 11-credit charge from the
+ * pricing plan is debited AFTER a successful (re)training run (see
+ * echoTrainHandler.ts) — this route only gates tier access, reference-count
+ * shape, ownership, and a fast pre-check that the account can plausibly
+ * afford the run at all before any real money gets spent on it.
  */
 export function echoRouter(queue: JobQueue): Router {
   const router = Router();
@@ -78,6 +83,11 @@ export function echoRouter(queue: JobQueue): Router {
     try {
       const self = await getApiKeyById(req.apiKeyId!);
       if (!self) throw new ApiError(401, "Missing or invalid x-api-key header.");
+      const account = await getOrCreateAccount(self.ownerLabel);
+      assertEchoAccess(account.tier);
+      if (account.creditBalance < ECHO_TRAIN_CREDITS) {
+        throw new InsufficientCreditsError(account.ownerLabel, ECHO_TRAIN_CREDITS, account.creditBalance);
+      }
 
       const files = (req.files as Express.Multer.File[] | undefined) ?? [];
       if (files.length < MIN_REFERENCE_IMAGES || files.length > MAX_REFERENCE_IMAGES) {
@@ -140,6 +150,11 @@ export function echoRouter(queue: JobQueue): Router {
       try {
         const self = await getApiKeyById(req.apiKeyId!);
         if (!self) throw new ApiError(401, "Missing or invalid x-api-key header.");
+        const account = await getOrCreateAccount(self.ownerLabel);
+        assertEchoAccess(account.tier);
+        if (account.creditBalance < ECHO_RETRAIN_CREDITS) {
+          throw new InsufficientCreditsError(account.ownerLabel, ECHO_RETRAIN_CREDITS, account.creditBalance);
+        }
 
         const modelId = req.params.id;
         if (!modelId) throw new ApiError(400, "Missing echo model id.");

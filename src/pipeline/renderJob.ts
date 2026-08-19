@@ -15,6 +15,8 @@ import type { SceneInputProps } from "../render/Root";
 export interface RenderJobResult {
   outputLocation: string;
   jobCost: JobCost;
+  /** The actual rendered video's playback length — what billing charges against, not renderWallClockSeconds (compute time) or any pre-render estimate. */
+  videoDurationSeconds: number;
   timingWarnings: string[];
   uploadUrl?: string;
   uploadError?: string;
@@ -152,6 +154,7 @@ export async function renderSceneDocumentJob(args: {
   return {
     outputLocation: args.outputLocation,
     jobCost,
+    videoDurationSeconds: ttsResult.durationSeconds,
     timingWarnings: timingResult.warnings,
     uploadUrl,
     uploadError,

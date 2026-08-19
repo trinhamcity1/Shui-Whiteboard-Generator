@@ -8,8 +8,14 @@ import type { JobCost } from "../cost/index";
 import type { SceneDocumentRequest } from "../pipeline/resolveSceneDocument";
 import type { AdRequest } from "../schema/ad";
 import { appendLocalApiKey, getLocalApiKey, listLocalApiKeysForOwner, setLocalApiKeyActive } from "./localApiKeys";
+import { upsertLocalJob, getLocalJob, listLocalJobsForKey } from "./localJobs";
 import { upsertLocalEchoModel, getLocalEchoModel, listLocalEchoModelsForOwner } from "./localEchoModels";
 import type { EchoModelRecord } from "../images/styleModel/echoTypes";
+import { upsertLocalAccount, getLocalAccount } from "./localAccounts";
+import { appendLocalLedgerEntry, listLocalLedgerForOwner } from "./localLedger";
+import type { AccountRecord, LedgerEntry } from "../billing/types";
+import { InsufficientCreditsError } from "../billing/types";
+import type { TierId } from "../billing/tiers";
 
 export type JobStatus = "queued" | "rendering" | "ready" | "failed";
 
@@ -207,40 +213,75 @@ export async function createApiKey(rawKey: string, ownerLabel: string): Promise<
 }
 
 export async function createJob(job: Omit<JobRecord, "createdAt" | "updatedAt">): Promise<JobRecord> {
-  const db = getDb();
   const now = Date.now();
   // deletedAt is written explicitly as null (not omitted) so the
   // `where("deletedAt", "==", null)` query in listJobsForKey matches it —
   // Firestore only matches `== null` against a field that's actually
   // present, not one that's simply absent from the document.
   const record: JobRecord = { ...job, deletedAt: job.deletedAt ?? null, createdAt: now, updatedAt: now };
-  await db.collection("jobs").doc(job.id).set(record);
-  return record;
+
+  if (isFirestoreKnownUnreachable()) {
+    upsertLocalJob(record);
+    return record;
+  }
+  try {
+    const db = getDb();
+    await db.collection("jobs").doc(job.id).set(record);
+    return record;
+  } catch {
+    markFirestoreUnreachable();
+    upsertLocalJob(record);
+    return record;
+  }
 }
 
 export async function updateJob(id: string, patch: Partial<Omit<JobRecord, "id" | "createdAt">>): Promise<void> {
-  const db = getDb();
-  await db.collection("jobs").doc(id).set({ ...patch, updatedAt: Date.now() }, { merge: true });
+  const updated = { ...patch, updatedAt: Date.now() };
+  if (isFirestoreKnownUnreachable()) {
+    const existing = getLocalJob(id);
+    if (existing) upsertLocalJob({ ...existing, ...updated });
+    return;
+  }
+  try {
+    const db = getDb();
+    await db.collection("jobs").doc(id).set(updated, { merge: true });
+  } catch {
+    markFirestoreUnreachable();
+    const existing = getLocalJob(id);
+    if (existing) upsertLocalJob({ ...existing, ...updated });
+  }
 }
 
 export async function getJob(id: string): Promise<JobRecord | null> {
-  const db = getDb();
-  const doc = await db.collection("jobs").doc(id).get();
-  if (!doc.exists) return null;
-  return doc.data() as JobRecord;
+  if (isFirestoreKnownUnreachable()) return getLocalJob(id);
+  try {
+    const db = getDb();
+    const doc = await db.collection("jobs").doc(id).get();
+    if (!doc.exists) return null;
+    return doc.data() as JobRecord;
+  } catch {
+    markFirestoreUnreachable();
+    return getLocalJob(id);
+  }
 }
 
 export async function listJobsForKey(apiKeyId: string, limit: number, offset: number): Promise<JobRecord[]> {
-  const db = getDb();
-  const snapshot = await db
-    .collection("jobs")
-    .where("apiKeyId", "==", apiKeyId)
-    .where("deletedAt", "==", null)
-    .orderBy("createdAt", "desc")
-    .offset(offset)
-    .limit(limit)
-    .get();
-  return snapshot.docs.map((d) => d.data() as JobRecord);
+  if (isFirestoreKnownUnreachable()) return listLocalJobsForKey(apiKeyId, limit, offset);
+  try {
+    const db = getDb();
+    const snapshot = await db
+      .collection("jobs")
+      .where("apiKeyId", "==", apiKeyId)
+      .where("deletedAt", "==", null)
+      .orderBy("createdAt", "desc")
+      .offset(offset)
+      .limit(limit)
+      .get();
+    return snapshot.docs.map((d) => d.data() as JobRecord);
+  } catch {
+    markFirestoreUnreachable();
+    return listLocalJobsForKey(apiKeyId, limit, offset);
+  }
 }
 
 export interface ImageCacheRecord {
@@ -422,6 +463,176 @@ export async function updateEchoModel(id: string, patch: Partial<Omit<EchoModelR
     markFirestoreUnreachable();
     const existing = getLocalEchoModel(id);
     if (existing) upsertLocalEchoModel({ ...existing, ...updated });
+  }
+}
+
+const DEFAULT_TIER: TierId = "siltstone";
+
+/** Creates the account on first touch (defaults: siltstone tier, 0 balance) — there's no separate signup step for the wallet, it just starts existing the first time anything asks about it. */
+export async function getOrCreateAccount(ownerLabel: string): Promise<AccountRecord> {
+  if (isFirestoreKnownUnreachable()) {
+    const existing = getLocalAccount(ownerLabel);
+    if (existing) return existing;
+    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    upsertLocalAccount(fresh);
+    return fresh;
+  }
+  try {
+    const db = getDb();
+    const doc = await db.collection("accounts").doc(ownerLabel).get();
+    if (doc.exists) return doc.data() as AccountRecord;
+    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    await db.collection("accounts").doc(ownerLabel).set(fresh);
+    return fresh;
+  } catch {
+    markFirestoreUnreachable();
+    const existing = getLocalAccount(ownerLabel);
+    if (existing) return existing;
+    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    upsertLocalAccount(fresh);
+    return fresh;
+  }
+}
+
+export async function setAccountTier(ownerLabel: string, tier: TierId): Promise<AccountRecord> {
+  const account = await getOrCreateAccount(ownerLabel);
+  const updated: AccountRecord = { ...account, tier, updatedAt: Date.now() };
+  if (isFirestoreKnownUnreachable()) {
+    upsertLocalAccount(updated);
+    return updated;
+  }
+  try {
+    const db = getDb();
+    await db.collection("accounts").doc(ownerLabel).set(updated, { merge: true });
+    return updated;
+  } catch {
+    markFirestoreUnreachable();
+    upsertLocalAccount(updated);
+    return updated;
+  }
+}
+
+async function appendLedgerEntry(entry: LedgerEntry): Promise<void> {
+  if (isFirestoreKnownUnreachable()) {
+    appendLocalLedgerEntry(entry);
+    return;
+  }
+  try {
+    const db = getDb();
+    await db.collection("ledger").doc(entry.id).set(entry);
+  } catch {
+    markFirestoreUnreachable();
+    appendLocalLedgerEntry(entry);
+  }
+}
+
+/** Adds credits (a purchase, a subscription renewal, a manual top-up) and records the ledger entry. Never fails on balance — crediting is always allowed. */
+export async function creditAccount(ownerLabel: string, amount: number, reason: string): Promise<AccountRecord> {
+  if (amount <= 0) throw new Error(`creditAccount amount must be positive, got ${amount}.`);
+  const account = await getOrCreateAccount(ownerLabel);
+  const updated: AccountRecord = { ...account, creditBalance: account.creditBalance + amount, updatedAt: Date.now() };
+
+  if (isFirestoreKnownUnreachable()) {
+    upsertLocalAccount(updated);
+  } else {
+    try {
+      const db = getDb();
+      await db.collection("accounts").doc(ownerLabel).set(updated, { merge: true });
+    } catch {
+      markFirestoreUnreachable();
+      upsertLocalAccount(updated);
+    }
+  }
+
+  await appendLedgerEntry({
+    id: crypto.randomUUID(),
+    ownerLabel,
+    type: "credit",
+    amount,
+    reason,
+    balanceAfter: updated.creditBalance,
+    createdAt: Date.now(),
+  });
+  return updated;
+}
+
+/**
+ * Deducts credits for real, delivered value (a rendered video's real
+ * minutes, a completed Echo training run) — never a pre-authorization,
+ * since neither of those costs is knowable until after the work is done.
+ * Throws InsufficientCreditsError instead of letting a balance go
+ * negative; callers that already started the real-money work before
+ * calling this (which every current caller does, deliberately — see
+ * echoTrainHandler.ts and renderHandler.ts's own comments) accept that as
+ * a known gap until a pre-check against the *estimated* cost is added.
+ * Uses a Firestore transaction against the real DB so two concurrent
+ * debits on the same account can't both read a stale balance; the local
+ * fallback is a plain read-modify-write, correct only for the
+ * single-process dev/sandbox environment it's meant for.
+ */
+export async function debitAccount(ownerLabel: string, amount: number, reason: string): Promise<AccountRecord> {
+  if (amount <= 0) throw new Error(`debitAccount amount must be positive, got ${amount}.`);
+
+  if (isFirestoreKnownUnreachable()) {
+    const account = await getOrCreateAccount(ownerLabel);
+    if (account.creditBalance < amount) {
+      throw new InsufficientCreditsError(ownerLabel, amount, account.creditBalance);
+    }
+    const updated: AccountRecord = { ...account, creditBalance: account.creditBalance - amount, updatedAt: Date.now() };
+    upsertLocalAccount(updated);
+    await appendLedgerEntry({
+      id: crypto.randomUUID(),
+      ownerLabel,
+      type: "debit",
+      amount,
+      reason,
+      balanceAfter: updated.creditBalance,
+      createdAt: Date.now(),
+    });
+    return updated;
+  }
+
+  try {
+    const db = getDb();
+    const ref = db.collection("accounts").doc(ownerLabel);
+    const updated = await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      const account: AccountRecord = doc.exists
+        ? (doc.data() as AccountRecord)
+        : { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+      if (account.creditBalance < amount) {
+        throw new InsufficientCreditsError(ownerLabel, amount, account.creditBalance);
+      }
+      const next: AccountRecord = { ...account, creditBalance: account.creditBalance - amount, updatedAt: Date.now() };
+      tx.set(ref, next, { merge: true });
+      return next;
+    });
+    await appendLedgerEntry({
+      id: crypto.randomUUID(),
+      ownerLabel,
+      type: "debit",
+      amount,
+      reason,
+      balanceAfter: updated.creditBalance,
+      createdAt: Date.now(),
+    });
+    return updated;
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) throw err;
+    markFirestoreUnreachable();
+    return debitAccount(ownerLabel, amount, reason); // retries once through the now-local path
+  }
+}
+
+export async function listLedgerForOwner(ownerLabel: string): Promise<LedgerEntry[]> {
+  if (isFirestoreKnownUnreachable()) return listLocalLedgerForOwner(ownerLabel);
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("ledger").where("ownerLabel", "==", ownerLabel).orderBy("createdAt", "desc").get();
+    return snapshot.docs.map((d) => d.data() as LedgerEntry);
+  } catch {
+    markFirestoreUnreachable();
+    return listLocalLedgerForOwner(ownerLabel);
   }
 }
 
