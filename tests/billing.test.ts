@@ -1,7 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { creditAccount, debitAccount, getOrCreateAccount, listLedgerForOwner, setAccountTier } from "../src/storage/firestore";
+import {
+  creditAccount,
+  debitAccount,
+  getOrCreateAccount,
+  listLedgerForOwner,
+  setAccountTier,
+  markFreeTrialUsed,
+  cancelSubscription,
+} from "../src/storage/firestore";
+import { serializeJob } from "../src/api/serializers";
+import type { JobRecord } from "../src/storage/firestore";
 import { InsufficientCreditsError } from "../src/billing/types";
 import {
   assertApiAccess,
@@ -67,6 +77,62 @@ describe("credit wallet storage", () => {
     const updated = await setAccountTier("owner@example.com", "alabaster");
     expect(updated.tier).toBe("alabaster");
     expect(updated.creditBalance).toBe(30);
+  });
+
+  it("a fresh account has not used its free trial yet", async () => {
+    const account = await getOrCreateAccount("new@example.com");
+    expect(account.hasUsedFreeTrial).toBe(false);
+  });
+
+  it("markFreeTrialUsed flips the flag and never reverses", async () => {
+    const updated = await markFreeTrialUsed("owner@example.com");
+    expect(updated.hasUsedFreeTrial).toBe(true);
+    const again = await getOrCreateAccount("owner@example.com");
+    expect(again.hasUsedFreeTrial).toBe(true);
+  });
+
+  it("cancelSubscription drops the account back to siltstone, keeping the balance", async () => {
+    await creditAccount("owner@example.com", 40, "topup");
+    await setAccountTier("owner@example.com", "obsidian");
+    const cancelled = await cancelSubscription("owner@example.com");
+    expect(cancelled.tier).toBe("siltstone");
+    expect(cancelled.creditBalance).toBe(40);
+  });
+});
+
+describe("serializeJob download gating", () => {
+  const readyJob: JobRecord = {
+    id: "job-1",
+    apiKeyId: "key-1",
+    status: "ready",
+    resultUrl: "https://example.com/video.mp4",
+    request: {} as JobRecord["request"],
+    createdAt: 0,
+    updatedAt: 0,
+    deletedAt: null,
+  };
+
+  it("includes result_url when downloads are allowed", () => {
+    const serialized = serializeJob(readyJob, { canDownload: true });
+    expect(serialized.result_url).toBe("https://example.com/video.mp4");
+    expect(serialized.download_locked).toBe(false);
+  });
+
+  it("strips result_url and flags download_locked when downloads are not allowed", () => {
+    const serialized = serializeJob(readyJob, { canDownload: false });
+    expect(serialized.result_url).toBeUndefined();
+    expect(serialized.download_locked).toBe(true);
+  });
+
+  it("a queued (not-yet-ready) job is never flagged download_locked, even when downloads are disallowed", () => {
+    const queuedJob: JobRecord = { ...readyJob, status: "queued", resultUrl: undefined };
+    const serialized = serializeJob(queuedJob, { canDownload: false });
+    expect(serialized.download_locked).toBe(false);
+  });
+
+  it("defaults canDownload to true for internal callers that don't pass opts", () => {
+    const serialized = serializeJob(readyJob);
+    expect(serialized.result_url).toBe("https://example.com/video.mp4");
   });
 });
 

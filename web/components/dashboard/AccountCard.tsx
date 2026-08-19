@@ -9,8 +9,8 @@ export function AccountCard({ account }: { account: AccountResponse }) {
           <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">Plan</p>
           <p className="font-display mt-1 text-2xl font-semibold text-ink">{account.tierName}</p>
         </div>
-        <Link href="/pricing" className="text-sm font-semibold text-ink underline underline-offset-4">
-          Change plan
+        <Link href="/dashboard/settings" className="text-sm font-semibold text-ink underline underline-offset-4">
+          Manage plan
         </Link>
       </div>
 

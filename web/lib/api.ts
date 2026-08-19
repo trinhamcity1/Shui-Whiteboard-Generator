@@ -82,6 +82,8 @@ export interface JobSummary {
   status: "queued" | "rendering" | "ready" | "failed";
   title?: string;
   result_url?: string;
+  /** True once the video is ready but the account's current plan doesn't allow downloading it (Siltstone) — see serializeJob's own comment. */
+  download_locked?: boolean;
   status_message?: string;
   cost?: { totalCostUsd: number };
   created_at: number;
@@ -119,6 +121,10 @@ export function fetchLedger(apiKey: string): Promise<{ items: LedgerEntry[] }> {
   return request("/v1/account/ledger", { apiKey });
 }
 
+export function cancelSubscription(apiKey: string): Promise<{ tier: TierConfig["id"]; tierName: string; creditBalance: number }> {
+  return request("/v1/account/cancel", { method: "POST", apiKey });
+}
+
 export function fetchKeys(apiKey: string): Promise<{ items: ApiKeySummary[] }> {
   return request("/v1/keys", { apiKey });
 }
@@ -137,6 +143,10 @@ export function fetchJobs(apiKey: string): Promise<{ items: JobSummary[] }> {
 
 export function fetchJob(apiKey: string, id: string): Promise<JobSummary> {
   return request(`/v1/videos/${id}`, { apiKey });
+}
+
+export function deleteJob(apiKey: string, id: string): Promise<void> {
+  return request(`/v1/videos/${id}`, { method: "DELETE", apiKey });
 }
 
 export interface GenerateVideoRequest {

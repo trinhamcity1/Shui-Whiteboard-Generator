@@ -9,7 +9,7 @@ import { AccountCard } from "@/components/dashboard/AccountCard";
 import { KeysPanel } from "@/components/dashboard/KeysPanel";
 import { LedgerPanel } from "@/components/dashboard/LedgerPanel";
 import { GenerateForm } from "@/components/dashboard/GenerateForm";
-import { JobsList } from "@/components/dashboard/JobsList";
+import { Library } from "@/components/dashboard/Library";
 import { EchoPanel } from "@/components/dashboard/EchoPanel";
 import { getStoredApiKey, clearStoredApiKey } from "@/lib/auth";
 import { fetchAccount, fetchEchoModels, type AccountResponse, type EchoModelSummary } from "@/lib/api";
@@ -65,24 +65,26 @@ export default function DashboardPage() {
         <div className="mx-auto max-w-4xl px-6 py-12">
           <div className="mb-8 flex items-center justify-between">
             <h1 className="font-display text-3xl font-semibold text-ink">Dashboard</h1>
-            <button onClick={handleSignOut} className="text-sm font-semibold text-ink-soft hover:text-ink">
-              Sign out
-            </button>
+            <div className="flex items-center gap-5">
+              <Link href="/dashboard/settings" className="text-sm font-semibold text-ink-soft hover:text-ink">
+                Settings
+              </Link>
+              <button onClick={handleSignOut} className="text-sm font-semibold text-ink-soft hover:text-ink">
+                Sign out
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-6">
             <AccountCard account={account} />
 
             {account.uiAccess ? (
-              <>
-                <GenerateForm
-                  apiKey={apiKey}
-                  account={account}
-                  echoModels={echoModels}
-                  onQueued={() => setRefreshKey((k) => k + 1)}
-                />
-                <JobsList apiKey={apiKey} refreshKey={refreshKey} />
-              </>
+              <GenerateForm
+                apiKey={apiKey}
+                account={account}
+                echoModels={echoModels}
+                onQueued={() => setRefreshKey((k) => k + 1)}
+              />
             ) : (
               <div className="rounded-2xl border border-line bg-paper-raised p-6 text-sm text-ink-soft">
                 <p>
@@ -95,6 +97,8 @@ export default function DashboardPage() {
                 </p>
               </div>
             )}
+
+            <Library apiKey={apiKey} refreshKey={refreshKey} />
 
             <LedgerPanel apiKey={apiKey} />
 

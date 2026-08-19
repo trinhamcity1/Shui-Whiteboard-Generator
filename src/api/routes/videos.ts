@@ -19,6 +19,16 @@ import {
 import { InsufficientCreditsError } from "../../billing/types";
 import type { JobQueue } from "../../queue/types";
 
+/** Download requires the CALLING KEY's account to currently be on a paid
+ * (non-Siltstone) tier — see serializeJob's own comment on why this is a
+ * live check, not a per-job flag. */
+async function accountAllowsDownload(apiKeyId: string): Promise<boolean> {
+  const self = await getApiKeyById(apiKeyId);
+  if (!self) return false;
+  const account = await getOrCreateAccount(self.ownerLabel);
+  return account.tier !== "siltstone";
+}
+
 export function videosRouter(queue: JobQueue): Router {
   const router = Router();
 
@@ -99,9 +109,16 @@ export function videosRouter(queue: JobQueue): Router {
         });
         if (estimatedMinutes > 0) {
           assertLengthAllowed(account.tier, estimatedMinutes);
-          const estimatedCost = estimatedMinutes * creditsPerMinute;
-          if (account.creditBalance < estimatedCost) {
-            throw new InsufficientCreditsError(account.ownerLabel, estimatedCost, account.creditBalance);
+          // The account's one free trial video skips the balance check
+          // entirely — feature gates above (tier access, topic mode,
+          // orientation, max length) still apply as normal; only the
+          // credit requirement is waived. renderHandler.ts makes the
+          // matching call on the billing side after the render succeeds.
+          if (account.hasUsedFreeTrial) {
+            const estimatedCost = estimatedMinutes * creditsPerMinute;
+            if (account.creditBalance < estimatedCost) {
+              throw new InsufficientCreditsError(account.ownerLabel, estimatedCost, account.creditBalance);
+            }
           }
         }
       }
@@ -128,7 +145,8 @@ export function videosRouter(queue: JobQueue): Router {
       const limit = Math.min(Number(req.query.limit ?? 20) || 20, 100);
       const offset = Number(req.query.offset ?? 0) || 0;
       const jobs = await listJobsForKey(req.apiKeyId!, limit, offset);
-      res.json({ items: jobs.map(serializeJob), limit, offset });
+      const canDownload = await accountAllowsDownload(req.apiKeyId!);
+      res.json({ items: jobs.map((job) => serializeJob(job, { canDownload })), limit, offset });
     } catch (err) {
       next(err);
     }
@@ -139,7 +157,8 @@ export function videosRouter(queue: JobQueue): Router {
       const job = await getJob(req.params.id);
       if (!job) throw new ApiError(404, "Job not found.");
       if (job.apiKeyId !== req.apiKeyId) throw new ApiError(403, "Not permitted.");
-      res.json(serializeJob(job));
+      const canDownload = await accountAllowsDownload(req.apiKeyId!);
+      res.json(serializeJob(job, { canDownload }));
     } catch (err) {
       next(err);
     }

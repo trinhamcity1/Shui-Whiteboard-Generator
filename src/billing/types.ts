@@ -11,6 +11,8 @@ export interface AccountRecord {
   ownerLabel: string; // primary key
   tier: TierId;
   creditBalance: number; // in credits, not USD — see tiers.ts's own comment on why
+  /** True once this account's one free trial video has been billed (or attempted) — see renderHandler.ts. Every account starts false, regardless of tier or entry point (API or dashboard). */
+  hasUsedFreeTrial: boolean;
   createdAt: number;
   updatedAt: number;
 }

@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { getApiKeyById, debitAccount, getOrCreateAccount, getJob, updateJob } from "../storage/firestore";
+import { getApiKeyById, debitAccount, getOrCreateAccount, markFreeTrialUsed, getJob, updateJob } from "../storage/firestore";
 import { renderSceneDocumentJob } from "../pipeline/renderJob";
 import { renderAdJob } from "../pipeline/renderAdJob";
 import { creditsPerMinuteFor, resolveBillingMode } from "../billing/gate";
@@ -76,14 +76,23 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
     // video that's already been rendered; it's logged onto the job instead
     // so it's visible, not silently lost.
     let billingWarning: string | undefined;
+    let freeTrialUsed = false;
     try {
       const self = await getApiKeyById(job.apiKeyId);
       if (self) {
         const account = await getOrCreateAccount(self.ownerLabel);
-        const mode = resolveBillingMode(job.request as { topic?: unknown });
-        const creditsPerMinute = creditsPerMinuteFor(account.tier, mode);
-        const minutes = result.videoDurationSeconds / 60;
-        await debitAccount(self.ownerLabel, minutes * creditsPerMinute, `video:${job.id}`);
+        if (account.hasUsedFreeTrial) {
+          const mode = resolveBillingMode(job.request as { topic?: unknown });
+          const creditsPerMinute = creditsPerMinuteFor(account.tier, mode);
+          const minutes = result.videoDurationSeconds / 60;
+          await debitAccount(self.ownerLabel, minutes * creditsPerMinute, `video:${job.id}`);
+        } else {
+          // The account's one free trial video — waived, not debited.
+          // Marked used only now, on real success, so a render that
+          // fails never burns the customer's one free shot.
+          await markFreeTrialUsed(self.ownerLabel);
+          freeTrialUsed = true;
+        }
       }
     } catch (err) {
       billingWarning =
@@ -95,6 +104,7 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
 
     const combinedStatusMessage = [
       result.timingWarnings.length > 0 ? result.timingWarnings.join(" | ") : undefined,
+      freeTrialUsed ? "Free trial video — not charged." : undefined,
       billingWarning,
     ]
       .filter(Boolean)

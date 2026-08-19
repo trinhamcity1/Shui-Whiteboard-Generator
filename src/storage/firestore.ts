@@ -473,22 +473,25 @@ export async function getOrCreateAccount(ownerLabel: string): Promise<AccountRec
   if (isFirestoreKnownUnreachable()) {
     const existing = getLocalAccount(ownerLabel);
     if (existing) return existing;
-    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, hasUsedFreeTrial: false, createdAt: Date.now(), updatedAt: Date.now() };
     upsertLocalAccount(fresh);
     return fresh;
   }
   try {
     const db = getDb();
     const doc = await db.collection("accounts").doc(ownerLabel).get();
-    if (doc.exists) return doc.data() as AccountRecord;
-    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    if (doc.exists) {
+      const data = doc.data() as AccountRecord;
+      return { ...data, hasUsedFreeTrial: data.hasUsedFreeTrial ?? false }; // accounts created before this field existed
+    }
+    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, hasUsedFreeTrial: false, createdAt: Date.now(), updatedAt: Date.now() };
     await db.collection("accounts").doc(ownerLabel).set(fresh);
     return fresh;
   } catch {
     markFirestoreUnreachable();
     const existing = getLocalAccount(ownerLabel);
     if (existing) return existing;
-    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    const fresh: AccountRecord = { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, hasUsedFreeTrial: false, createdAt: Date.now(), updatedAt: Date.now() };
     upsertLocalAccount(fresh);
     return fresh;
   }
@@ -497,6 +500,30 @@ export async function getOrCreateAccount(ownerLabel: string): Promise<AccountRec
 export async function setAccountTier(ownerLabel: string, tier: TierId): Promise<AccountRecord> {
   const account = await getOrCreateAccount(ownerLabel);
   const updated: AccountRecord = { ...account, tier, updatedAt: Date.now() };
+  if (isFirestoreKnownUnreachable()) {
+    upsertLocalAccount(updated);
+    return updated;
+  }
+  try {
+    const db = getDb();
+    await db.collection("accounts").doc(ownerLabel).set(updated, { merge: true });
+    return updated;
+  } catch {
+    markFirestoreUnreachable();
+    upsertLocalAccount(updated);
+    return updated;
+  }
+}
+
+/** Self-serve cancel: drops the account back to Siltstone (pay-as-you-go), keeping the credit balance — the same rollover-on-downgrade rule every plan change already follows. A no-op if already on Siltstone. */
+export async function cancelSubscription(ownerLabel: string): Promise<AccountRecord> {
+  return setAccountTier(ownerLabel, "siltstone");
+}
+
+/** Marks the account's one free trial video as used — called once, right after renderHandler.ts decides to waive billing for a video instead of debiting it. Never reversed. */
+export async function markFreeTrialUsed(ownerLabel: string): Promise<AccountRecord> {
+  const account = await getOrCreateAccount(ownerLabel);
+  const updated: AccountRecord = { ...account, hasUsedFreeTrial: true, updatedAt: Date.now() };
   if (isFirestoreKnownUnreachable()) {
     upsertLocalAccount(updated);
     return updated;
@@ -598,8 +625,8 @@ export async function debitAccount(ownerLabel: string, amount: number, reason: s
     const updated = await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       const account: AccountRecord = doc.exists
-        ? (doc.data() as AccountRecord)
-        : { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, createdAt: Date.now(), updatedAt: Date.now() };
+        ? { ...(doc.data() as AccountRecord), hasUsedFreeTrial: (doc.data() as AccountRecord).hasUsedFreeTrial ?? false }
+        : { ownerLabel, tier: DEFAULT_TIER, creditBalance: 0, hasUsedFreeTrial: false, createdAt: Date.now(), updatedAt: Date.now() };
       if (account.creditBalance < amount) {
         throw new InsufficientCreditsError(ownerLabel, amount, account.creditBalance);
       }
