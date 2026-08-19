@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #faf7ef;
+  --paper-raised: #ffffff;
+  --ink: #1a1712;
+  --ink-soft: #5c564c;
+  --ink-faint: #8b8477;
+  --line: #e3dbc8;
+  --line-strong: #cfc4a8;
+  --accent: #e2572b;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbe3d8;
+
+  --tier-siltstone: #8c8579;
+  --tier-obsidian: #232025;
+  --tier-alabaster: #cabe9d;
+  --tier-pyramidion: #b08a4e;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-siltstone: var(--tier-siltstone);
+  --color-obsidian: var(--tier-obsidian);
+  --color-alabaster: var(--tier-alabaster);
+  --color-pyramidion: var(--tier-pyramidion);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-manrope);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}

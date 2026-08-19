@@ -2,6 +2,7 @@ import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type Express } from "express";
+import cors from "cors";
 import { requireApiKey } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
 import { errorHandler } from "./middleware/errorHandler";
@@ -24,6 +25,18 @@ const ROOT = path.resolve(__dirname, "../..");
 
 export function buildServer(): Express {
   const app = express();
+
+  // The web app calls this API from a different origin (its own Vercel/
+  // Cloud Run domain, or localhost:3000 in dev) — auth is the x-api-key
+  // header, never a cookie, so an allow-listed CORS origin adds no real
+  // credential-leak risk the way it would for cookie auth. Defaults to
+  // "*" (any origin) when CORS_ALLOWED_ORIGINS isn't set, since a missing
+  // config value should fail open to "the web app can't reach the API,
+  // some CORS error, come read this comment" rather than a client-side 401
+  // wrongly blamed on the request itself.
+  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(",").map((o) => o.trim());
+  app.use(cors({ origin: allowedOrigins ?? true }));
+
   app.use(express.json({ limit: "2mb" }));
 
   const useCloudTasks = process.env.CLOUD_TASKS_QUEUE !== undefined;
