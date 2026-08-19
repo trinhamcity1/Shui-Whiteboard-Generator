@@ -23,6 +23,9 @@ export function estimateRenderComputeCost(renderWallClockSeconds: number): Rende
 export interface JobCost {
   ttsCharacters: number;
   ttsCostUsd: number;
+  /** The topic-only tier's "expand a topic into a narration script" LLM call, run before scene planning. Absent for the scenes/narrationScript tiers. */
+  scriptWritingLLMTokens?: number;
+  scriptWritingCostUsd?: number;
   scenePlanningLLMTokens?: number;
   scenePlanningCostUsd?: number;
   imagesGenerated?: number;
@@ -42,6 +45,8 @@ export function buildJobCost(args: {
   ttsCharacters: number;
   ttsCostUsd: number;
   renderWallClockSeconds: number;
+  scriptWritingLLMTokens?: number;
+  scriptWritingCostUsd?: number;
   scenePlanningLLMTokens?: number;
   scenePlanningCostUsd?: number;
   imagesGenerated?: number;
@@ -52,6 +57,7 @@ export function buildJobCost(args: {
   assetPromotionCostUsd?: number;
 }): JobCost {
   const { renderComputeCostUsd } = estimateRenderComputeCost(args.renderWallClockSeconds);
+  const scriptWritingCostUsd = args.scriptWritingCostUsd ?? 0;
   const scenePlanningCostUsd = args.scenePlanningCostUsd ?? 0;
   const imageGenerationCostUsd = args.imageGenerationCostUsd ?? 0;
   const layoutQaCostUsd = args.layoutQaCostUsd ?? 0;
@@ -59,6 +65,8 @@ export function buildJobCost(args: {
   return {
     ttsCharacters: args.ttsCharacters,
     ttsCostUsd: args.ttsCostUsd,
+    scriptWritingLLMTokens: args.scriptWritingLLMTokens,
+    scriptWritingCostUsd: args.scriptWritingCostUsd,
     scenePlanningLLMTokens: args.scenePlanningLLMTokens,
     scenePlanningCostUsd: args.scenePlanningCostUsd,
     imagesGenerated: args.imagesGenerated,
@@ -70,7 +78,13 @@ export function buildJobCost(args: {
     renderWallClockSeconds: args.renderWallClockSeconds,
     renderComputeCostUsd,
     totalCostUsd:
-      args.ttsCostUsd + renderComputeCostUsd + scenePlanningCostUsd + imageGenerationCostUsd + layoutQaCostUsd + assetPromotionCostUsd,
+      args.ttsCostUsd +
+      renderComputeCostUsd +
+      scriptWritingCostUsd +
+      scenePlanningCostUsd +
+      imageGenerationCostUsd +
+      layoutQaCostUsd +
+      assetPromotionCostUsd,
   };
 }
 
@@ -84,6 +98,11 @@ export function printJobCost(cost: JobCost, label?: string): void {
 
   console.log(`\n--- Job Cost Breakdown${label ? ` (${label})` : ""} ---`);
   console.log(`TTS:      ${cost.ttsCharacters} characters -> $${cost.ttsCostUsd.toFixed(4)}`);
+  if (cost.scriptWritingCostUsd !== undefined) {
+    console.log(
+      `Scripting: ${cost.scriptWritingLLMTokens ?? 0} tokens -> $${cost.scriptWritingCostUsd.toFixed(4)}`,
+    );
+  }
   if (cost.scenePlanningCostUsd !== undefined) {
     console.log(
       `Planning: ${cost.scenePlanningLLMTokens ?? 0} tokens -> $${cost.scenePlanningCostUsd.toFixed(4)}`,

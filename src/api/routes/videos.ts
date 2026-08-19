@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { ApiError } from "../errors";
 import { serializeJob } from "../serializers";
-import { ScriptOnlyRequestSchema, type SceneDocumentRequest } from "../../pipeline/resolveSceneDocument";
+import { ScriptOnlyRequestSchema, TopicRequestSchema, type SceneDocumentRequest } from "../../pipeline/resolveSceneDocument";
 import { parseSceneDocument } from "../../schema/scene";
 import { AdRequestSchema } from "../../schema/ad";
 import { createJob, getJob, listJobsForKey, updateJob, type JobRecord } from "../../storage/firestore";
@@ -32,24 +32,30 @@ export function videosRouter(queue: JobQueue): Router {
       } else {
         const hasScenes = "scenes" in body && body.scenes !== undefined;
         const hasScript = "narrationScript" in body && body.narrationScript !== undefined;
+        const hasTopic = "topic" in body && body.topic !== undefined;
 
-        if (hasScenes && hasScript) {
-          throw new ApiError(400, "Request must supply either `scenes` or `narrationScript`, not both.");
+        const modesSupplied = [hasScenes, hasScript, hasTopic].filter(Boolean).length;
+        if (modesSupplied > 1) {
+          throw new ApiError(400, "Request must supply exactly one of `scenes`, `narrationScript`, or `topic`, not more than one.");
         }
-        if (!hasScenes && !hasScript) {
-          throw new ApiError(400, "Request must supply either `scenes` (pre-authored) or `narrationScript` (script-only).");
+        if (modesSupplied === 0) {
+          throw new ApiError(
+            400,
+            "Request must supply one of `scenes` (pre-authored), `narrationScript` (script-only), or `topic` (topic-only).",
+          );
         }
 
         // Only the pre-authored path is validated synchronously here — it's
         // cheap and deterministic, so an immediate 422 is the right feedback.
-        // The narrationScript-only path gets a light shape check (real
-        // validation happens after the LLM call, in the async render
-        // worker) so `generate` never blocks on — or double-pays for — a
-        // network call to the scene planner.
+        // The narrationScript-only and topic-only paths get a light shape
+        // check (real validation happens after their LLM call(s), in the
+        // async render worker) so `generate` never blocks on — or
+        // double-pays for — a network call to the script writer or planner.
         if (hasScenes) {
           parseSceneDocument(body.scenes); // throws SceneValidationError -> 422 via errorHandler
         } else {
-          const result = ScriptOnlyRequestSchema.safeParse(body);
+          const schema = hasTopic ? TopicRequestSchema : ScriptOnlyRequestSchema;
+          const result = schema.safeParse(body);
           if (!result.success) {
             throw new ApiError(
               422,

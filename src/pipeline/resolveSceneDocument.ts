@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SceneDocument, parseSceneDocument, SceneValidationError } from "../schema/scene";
 import { planScenesFromScript } from "../schema/planning";
+import { writeScriptFromTopic } from "../schema/scriptWriting";
 import { getImageProvider, defaultImageProviderName, type ImageProviderName } from "../images/index";
 import { resolveImages, type ImageResolutionResult } from "../images/resolveImages";
 
@@ -18,27 +19,57 @@ export interface ScriptOnlyRequest {
   imageProvider?: ImageProviderName;
 }
 
-export type SceneDocumentRequest = PreAuthoredRequest | ScriptOnlyRequest;
+/** The "advanced" input tier: no script at all, just a topic — expanded
+ * into a full narrationScript by writeScriptFromTopic before the request
+ * is otherwise handled exactly like ScriptOnlyRequest. */
+export interface TopicRequest {
+  topic: string;
+  targetDurationSeconds?: number;
+  voice: string;
+  styleVariant: string;
+  orientation?: "vertical" | "horizontal";
+  backgroundTrack?: string;
+  imageProvider?: ImageProviderName;
+}
+
+export type SceneDocumentRequest = PreAuthoredRequest | ScriptOnlyRequest | TopicRequest;
+
+const SharedScriptFields = {
+  voice: z.string().min(1),
+  styleVariant: z.string().min(1),
+  orientation: z.enum(["vertical", "horizontal"]).optional(),
+  backgroundTrack: z.string().optional(),
+  imageProvider: z.enum(["recraft", "flux", "trained-style"]).optional(),
+};
 
 export const ScriptOnlyRequestSchema = z
   .object({
     narrationScript: z.string().min(1),
-    voice: z.string().min(1),
-    styleVariant: z.string().min(1),
-    orientation: z.enum(["vertical", "horizontal"]).optional(),
-    backgroundTrack: z.string().optional(),
-    imageProvider: z.enum(["recraft", "flux", "trained-style"]).optional(),
+    ...SharedScriptFields,
+  })
+  .strict();
+
+export const TopicRequestSchema = z
+  .object({
+    topic: z.string().min(1),
+    targetDurationSeconds: z.number().positive().optional(),
+    ...SharedScriptFields,
   })
   .strict();
 
 export interface ResolvedSceneDocument {
   sceneDocument: SceneDocument;
+  scriptWriting?: { tokensUsed: number; costUsd: number };
   scenePlanning?: { tokensUsed: number; costUsd: number };
   imageResolution?: ImageResolutionResult;
 }
 
 function isPreAuthored(request: SceneDocumentRequest): request is PreAuthoredRequest {
   return "scenes" in request;
+}
+
+function isTopicRequest(request: SceneDocumentRequest): request is TopicRequest {
+  return "topic" in request && request.topic !== undefined;
 }
 
 function needsImageResolution(sceneDocument: SceneDocument): boolean {
@@ -80,28 +111,35 @@ async function resolveImagesIfNeeded(
 }
 
 /**
- * Mirrors Golpo's `prompt` vs `custom_script` split: a caller supplies
- * either a full pre-authored SceneDocument, or just a narration script
- * that gets planned into one via Phase 3's LLM call. Rejects a request
- * that is neither or both — ambiguous input should fail loudly, not
- * guess.
+ * Mirrors Golpo's `prompt` vs `custom_script` split, extended with a third
+ * tier: a caller supplies a full pre-authored SceneDocument, a narration
+ * script that gets planned into one via the scene-planning LLM call, or
+ * just a topic that first gets expanded into a narration script (the
+ * script-writing LLM call) before being handed to that same planner.
+ * Rejects a request that supplies none or more than one of these — the
+ * request must pick exactly one tier.
  *
- * Async because the script-only path makes a real LLM call, and either
- * path may make real image-generation calls (Phase 4) for any action with
- * an imageConcept — callers on a request/response path that must return
- * immediately (the API's `generate` route) should validate shape with
- * ScriptOnlyRequestSchema instead and defer calling this until the async
- * render worker.
+ * Async because every path but the pre-authored one makes a real LLM call
+ * (the topic path makes two), and any path may make real image-generation
+ * calls (Phase 4) for an action with an imageConcept — callers on a
+ * request/response path that must return immediately (the API's `generate`
+ * route) should validate shape with ScriptOnlyRequestSchema/
+ * TopicRequestSchema instead and defer calling this until the async render
+ * worker.
  */
 export async function resolveSceneDocument(request: SceneDocumentRequest): Promise<ResolvedSceneDocument> {
   const hasScenes = "scenes" in request && request.scenes !== undefined;
   const hasScript = "narrationScript" in request && request.narrationScript !== undefined;
+  const hasTopic = isTopicRequest(request);
 
-  if (hasScenes && hasScript) {
-    throw new Error("Request must supply either `scenes` or `narrationScript`, not both.");
+  const modesSupplied = [hasScenes, hasScript, hasTopic].filter(Boolean).length;
+  if (modesSupplied > 1) {
+    throw new Error("Request must supply exactly one of `scenes`, `narrationScript`, or `topic`, not more than one.");
   }
-  if (!hasScenes && !hasScript) {
-    throw new Error("Request must supply either `scenes` (pre-authored) or `narrationScript` (script-only).");
+  if (modesSupplied === 0) {
+    throw new Error(
+      "Request must supply one of `scenes` (pre-authored), `narrationScript` (script-only), or `topic` (topic-only).",
+    );
   }
 
   if (isPreAuthored(request)) {
@@ -110,19 +148,39 @@ export async function resolveSceneDocument(request: SceneDocumentRequest): Promi
     return { sceneDocument, imageResolution };
   }
 
-  const scriptResult = ScriptOnlyRequestSchema.safeParse(request);
-  if (!scriptResult.success) {
-    throw new SceneValidationError(
-      scriptResult.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })),
-    );
-  }
-  const scriptRequest = scriptResult.data;
+  let narrationScript: string;
+  let scriptWriting: { tokensUsed: number; costUsd: number } | undefined;
+  let scriptRequest: z.infer<typeof ScriptOnlyRequestSchema> | z.infer<typeof TopicRequestSchema>;
 
-  const planResult = await planScenesFromScript(scriptRequest.narrationScript);
+  if (hasTopic) {
+    const topicResult = TopicRequestSchema.safeParse(request);
+    if (!topicResult.success) {
+      throw new SceneValidationError(
+        topicResult.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })),
+      );
+    }
+    scriptRequest = topicResult.data;
+    const writingResult = await writeScriptFromTopic(topicResult.data.topic, {
+      targetDurationSeconds: topicResult.data.targetDurationSeconds,
+    });
+    narrationScript = writingResult.narrationScript;
+    scriptWriting = { tokensUsed: writingResult.tokensUsed, costUsd: writingResult.costUsd };
+  } else {
+    const scriptResult = ScriptOnlyRequestSchema.safeParse(request);
+    if (!scriptResult.success) {
+      throw new SceneValidationError(
+        scriptResult.error.issues.map((issue) => ({ loc: issue.path, msg: issue.message })),
+      );
+    }
+    scriptRequest = scriptResult.data;
+    narrationScript = scriptResult.data.narrationScript;
+  }
+
+  const planResult = await planScenesFromScript(narrationScript);
 
   const sceneDocument = parseSceneDocument({
     schemaVersion: 1,
-    narrationScript: scriptRequest.narrationScript,
+    narrationScript,
     voice: scriptRequest.voice,
     styleVariant: scriptRequest.styleVariant,
     orientation: scriptRequest.orientation ?? "vertical",
@@ -134,6 +192,7 @@ export async function resolveSceneDocument(request: SceneDocumentRequest): Promi
 
   return {
     sceneDocument,
+    scriptWriting,
     scenePlanning: { tokensUsed: planResult.tokensUsed, costUsd: planResult.costUsd },
     imageResolution,
   };

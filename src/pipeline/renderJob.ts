@@ -44,7 +44,7 @@ export async function renderSceneDocumentJob(args: {
   /** Revision-3 Workstream 4 — runs the vision-LLM layout QA pass over every composed scene before the final render. Opt-in until validated against enough real renders to flip the default. */
   enableLayoutQA?: boolean;
 }): Promise<RenderJobResult> {
-  const { sceneDocument, scenePlanning, imageResolution } = await resolveSceneDocument(args.request);
+  const { sceneDocument, scriptWriting, scenePlanning, imageResolution } = await resolveSceneDocument(args.request);
 
   if (args.inlineImagesForLocalDev) {
     await inlineRemoteImagesForLocalDev(sceneDocument);
@@ -137,6 +137,8 @@ export async function renderSceneDocumentJob(args: {
     ttsCharacters: ttsResult.characters,
     ttsCostUsd: ttsResult.costUsd,
     renderWallClockSeconds,
+    scriptWritingLLMTokens: scriptWriting?.tokensUsed,
+    scriptWritingCostUsd: scriptWriting?.costUsd,
     scenePlanningLLMTokens: scenePlanning?.tokensUsed,
     scenePlanningCostUsd: scenePlanning?.costUsd,
     imagesGenerated: imageResolution?.imagesGenerated,

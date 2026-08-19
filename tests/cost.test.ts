@@ -14,6 +14,19 @@ describe("cost calculation", () => {
     expect(cost.totalCostUsd).toBeCloseTo(cost.ttsCostUsd + cost.renderComputeCostUsd, 6);
   });
 
+  it("includes script writing cost in the total when the topic-only path is used", () => {
+    const cost = buildJobCost({
+      ttsCharacters: 1000,
+      ttsCostUsd: 0.18,
+      renderWallClockSeconds: 30,
+      scriptWritingLLMTokens: 400,
+      scriptWritingCostUsd: 0.004,
+      scenePlanningLLMTokens: 1200,
+      scenePlanningCostUsd: 0.01,
+    });
+    expect(cost.totalCostUsd).toBeCloseTo(cost.ttsCostUsd + cost.renderComputeCostUsd + 0.004 + 0.01, 6);
+  });
+
   it("includes scene planning cost in the total when the script-only path is used", () => {
     const cost = buildJobCost({
       ttsCharacters: 1000,
