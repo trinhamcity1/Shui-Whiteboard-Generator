@@ -63,6 +63,7 @@ function ActionContent({ action }: { action: SceneAction }) {
           bottomBanner={diagram.bottomBanner}
           leftCharacterSrc={diagram.leftCharacterUrl}
           rightCharacterSrc={diagram.rightCharacterUrl}
+          isCyclical={diagram.isCyclical}
         />
       );
     }

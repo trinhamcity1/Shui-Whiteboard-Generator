@@ -37,6 +37,8 @@ export type SketchDiagramProps = {
   bottomBanner?: string;
   leftCharacterSrc?: string;
   rightCharacterSrc?: string;
+  /** flowchart-only: draws the loop-back return arrow. See scene.ts's own comment on why this isn't automatic. */
+  isCyclical?: boolean;
 } & Record<string, unknown>;
 
 const CANVAS_WIDTH = 1000;
@@ -106,6 +108,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   bottomBanner,
   leftCharacterSrc,
   rightCharacterSrc,
+  isCyclical = false,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [handle] = useState(() => delayRender("Loading font + drawing rough.js sketch diagram"));
@@ -238,8 +241,12 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         });
         // A curved return arrow from the last step back to the first —
         // makes an explicitly cyclical process (the common reason this
-        // shape got added) read as a loop, not a dead-ended list.
-        if (flowSteps.length > 1) {
+        // shape got added) read as a loop, not a dead-ended list. Only
+        // when the planner actually marked this sequence cyclical — see
+        // scene.ts's isCyclical comment for the real render this fixed
+        // (a plain 3-example list got an unwanted loop arrow drawn onto
+        // it just because it happened to use the flowchart shape).
+        if (isCyclical && flowSteps.length > 1) {
           const first = flowSteps[0]!;
           const last = flowSteps[flowSteps.length - 1]!;
           const returnX = CANVAS_WIDTH - 60;
@@ -277,7 +284,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [handle, diagramType, tierLayout, flowSteps, comparisonBoxes, topLabel, bottomBanner, anchorBaseY, contentYOffset]);
+  }, [handle, diagramType, tierLayout, flowSteps, comparisonBoxes, topLabel, bottomBanner, anchorBaseY, contentYOffset, isCyclical]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>

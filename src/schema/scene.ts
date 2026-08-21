@@ -48,6 +48,14 @@ export const SketchDiagramSpec = z.object({
   // available; a pyramid visually claims a ranking that a sequence doesn't
   // have. "comparison" — two boxes side by side (uses the first two tiers).
   diagramType: z.enum(["pyramid", "flowchart", "comparison"]).default("pyramid"),
+  // flowchart-only: true draws a curved return arrow from the last step
+  // back to the first, for a process that genuinely repeats (the water
+  // cycle). Caught on a real render: this used to be automatic for every
+  // flowchart with more than one step, which drew a loop-back arrow onto
+  // a plain non-repeating sequence (three unrelated examples of "the mind
+  // wandering") — a flowchart is also the right shape for a one-shot
+  // sequence with no cycle, so the loop can no longer be assumed.
+  isCyclical: z.boolean().optional(),
   topLabel: z.string().optional(),
   tiers: z.array(PyramidTierSchema).min(1),
   bottomBanner: z.string().optional(),

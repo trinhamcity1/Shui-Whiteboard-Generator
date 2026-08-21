@@ -130,7 +130,7 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     tier: "shared",
     role: "prop",
     provider: "flux",
-    description: "a simple round analog clock face",
+    description: "a round analog wall clock with clock hands and number markings, no face or eyes",
   },
   {
     id: "prop-bar-chart",

@@ -119,7 +119,8 @@ Rules:
     and asset ids.
   - sketchDiagram: "sketchDiagram" object — {"diagramType": "pyramid" | "flowchart" | "comparison",
     "title": string, "tiers": [{"label": string, "insetAssetId"?: string}, ...], "topLabel"?: string,
-    "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}.
+    "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string,
+    "isCyclical"?: boolean}.
     insetAssetId (pyramid mode only) places a small icon-scale library asset inside that tier next to its
     label, when one from the library fits — "diagram shapes carry embedded content," a small icon inside
     the tier reads as more composed than a bare colored band. Optional; only set it when a real matching
@@ -131,9 +132,13 @@ Rules:
       tier is genuinely subordinate to the one above it). Do NOT use pyramid for a sequence, process, or
       cycle — that visually claims a ranking the content doesn't have.
     - "flowchart": a sequence, process, or cycle — steps happen in order (e.g. "evaporation →
-      condensation → precipitation → collection"). Tiers become connected boxes in order; if the process
-      described in the script actually loops back to its start, flowchart draws that loop automatically
-      — pick flowchart for anything cyclical, never pyramid.
+      condensation → precipitation → collection"). Tiers become connected boxes in order. Set
+      "isCyclical": true ONLY when the script explicitly describes the last step leading back into the
+      first, making it a genuine repeating loop (e.g. the water cycle) — this draws a curved return arrow
+      from the last box back to the first. Leave it false/omitted for a plain one-shot sequence or a list
+      of parallel examples that merely happen to use box shapes (e.g. three unrelated ways the mind can
+      wander) — those are NOT cycles, and drawing a loop arrow onto them is wrong even though they use
+      "flowchart". When in doubt, default to false.
     - "comparison": exactly two tiers, side by side — for "X vs Y" content.
     leftCharacterAssetId/rightCharacterAssetId — ALWAYS set leftCharacterAssetId (and
     rightCharacterAssetId for a "pyramid" diagram specifically — flowchart/comparison only render the

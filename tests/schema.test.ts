@@ -52,4 +52,47 @@ describe("SceneDocument schema", () => {
     expect(parsed.actions).toHaveLength(2);
     expect(parsed.orientation).toBe("vertical");
   });
+
+  it("accepts a sketchDiagram flowchart with isCyclical set, and defaults it when omitted", () => {
+    const withCycle = {
+      ...validDocument,
+      actions: [
+        {
+          id: "a1",
+          type: "sketchDiagram",
+          atSeconds: 0,
+          durationSeconds: 5,
+          sketchDiagram: {
+            title: "The Water Cycle",
+            diagramType: "flowchart",
+            isCyclical: true,
+            tiers: [{ label: "Evaporation" }, { label: "Condensation" }],
+          },
+        },
+      ],
+    };
+    const parsedWithCycle = parseSceneDocument(withCycle);
+    expect((parsedWithCycle.actions[0] as { sketchDiagram: { isCyclical?: boolean } }).sketchDiagram.isCyclical).toBe(true);
+
+    const withoutCycle = {
+      ...validDocument,
+      actions: [
+        {
+          id: "a1",
+          type: "sketchDiagram",
+          atSeconds: 0,
+          durationSeconds: 5,
+          sketchDiagram: {
+            title: "Ways the Mind Wanders",
+            diagramType: "flowchart",
+            tiers: [{ label: "Remembers an Email" }, { label: "Replays an Argument" }],
+          },
+        },
+      ],
+    };
+    const parsedWithoutCycle = parseSceneDocument(withoutCycle);
+    expect(
+      (parsedWithoutCycle.actions[0] as { sketchDiagram: { isCyclical?: boolean } }).sketchDiagram.isCyclical,
+    ).toBeUndefined();
+  });
 });
