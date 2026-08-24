@@ -8,6 +8,7 @@ import {
   type LibraryAssetRecord,
 } from "../../storage/firestore";
 import { listLocalAutoExpandedAssets } from "./localRegistry";
+import { getPresignedUrlForKey } from "../../storage/r2";
 
 export interface ResolvedAsset {
   imageUrl: string;
@@ -38,22 +39,32 @@ function loadLocalV1Registry(): Map<string, LibraryAssetRecord> {
   return map;
 }
 
+/**
+ * Registry records store the presigned URL that was live at generation
+ * time, which is only good for 7 days (see r2.ts's DEFAULT_EXPIRY_SECONDS)
+ * — the record itself is permanent, so a library asset older than that
+ * would otherwise serve a dead, 403ing URL forever. Always re-sign from
+ * the stable r2Key instead of trusting the stored imageUrl.
+ */
+async function freshResolvedAsset(record: LibraryAssetRecord): Promise<ResolvedAsset> {
+  const imageUrl = await getPresignedUrlForKey({ key: record.r2Key });
+  return { imageUrl, widthPx: record.widthPx, heightPx: record.heightPx, anchors: record.anchors };
+}
+
 export async function resolveAssetId(assetId: string): Promise<ResolvedAsset | null> {
   if (!isFirestoreKnownUnreachable()) {
     try {
       const record = await getLibraryAsset(assetId);
-      if (record) return { imageUrl: record.imageUrl, widthPx: record.widthPx, heightPx: record.heightPx, anchors: record.anchors };
+      if (record) return await freshResolvedAsset(record);
     } catch {
       // Firestore unreachable (no GCP credentials in this environment) — fall through to the local registry.
       markFirestoreUnreachable();
     }
   }
   const v1 = loadLocalV1Registry().get(assetId);
-  if (v1) return { imageUrl: v1.imageUrl, widthPx: v1.widthPx, heightPx: v1.heightPx, anchors: v1.anchors };
+  if (v1) return await freshResolvedAsset(v1);
   const autoExpanded = listLocalAutoExpandedAssets().find((r) => r.id === assetId);
-  return autoExpanded
-    ? { imageUrl: autoExpanded.imageUrl, widthPx: autoExpanded.widthPx, heightPx: autoExpanded.heightPx, anchors: autoExpanded.anchors }
-    : null;
+  return autoExpanded ? await freshResolvedAsset(autoExpanded) : null;
 }
 
 /**
