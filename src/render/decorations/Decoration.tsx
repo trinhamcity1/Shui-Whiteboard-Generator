@@ -1,5 +1,5 @@
 import React from "react";
-import { useVideoConfig } from "remotion";
+import { Audio, Sequence, staticFile, useVideoConfig } from "remotion";
 import { Arrow } from "./Arrow";
 import { XMark, Checkmark, RadiatingStrokes, CircledScribble, UnderlineSwash, Sparkle, MotionDashes } from "./EmphasisMarks";
 import { BannerRibbon, Scroll, ThoughtBubble, SpeechBubble, WobbleFrame, TornPaperEdge } from "./Containers";
@@ -74,12 +74,27 @@ export function Decoration({ spec, instant }: { spec: DecorationSpec; instant?: 
 
 /** Renders a list of decorations inside an absolutely-positioned full-bleed SVG overlay — the standard way any scene/template overlays its decoration set on top of its own content. */
 export function DecorationLayer({ decorations, width = 1080, height = 1920, instant }: { decorations?: DecorationSpec[]; width?: number; height?: number; instant?: boolean }) {
+  const { fps } = useVideoConfig();
   if (!decorations || decorations.length === 0) return null;
   return (
-    <svg width={width} height={height} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }} viewBox={`0 0 ${width} ${height}`}>
-      {decorations.map((d, i) => (
-        <Decoration key={i} spec={d} instant={instant} />
-      ))}
-    </svg>
+    <>
+      <svg width={width} height={height} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }} viewBox={`0 0 ${width} ${height}`}>
+        {decorations.map((d, i) => (
+          <Decoration key={i} spec={d} instant={instant} />
+        ))}
+      </svg>
+      {/* A checkmark is the one decoration that reads as a positive
+          confirmation ("this is right") rather than pure visual emphasis
+          — a chime backs that up instead of the reveal staying silent.
+          Audio/Sequence can't nest inside the <svg> above, so these render
+          as siblings instead. */}
+      {decorations.map((d, i) =>
+        d.kind === "checkmark" ? (
+          <Sequence key={`sfx-${i}`} from={Math.round((d.revealAtSeconds ?? 0) * fps)} durationInFrames={30}>
+            <Audio src={staticFile("sfx/reveal-chime.mp3")} volume={0.35} />
+          </Sequence>
+        ) : null,
+      )}
+    </>
   );
 }

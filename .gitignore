@@ -9,3 +9,4 @@ public/tts-*.mp3
 .DS_Store
 style-model-candidates/
 public/resolved-assets/
+public/sfx/*.mp3

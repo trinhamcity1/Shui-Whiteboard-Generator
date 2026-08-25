@@ -118,13 +118,16 @@ export function SceneRenderer({ sceneDocument, audioFileName }: SceneRendererPro
           <Audio src={staticFile(sceneDocument.backgroundTrack)} volume={0.12} />
         ) : null}
 
-        {sceneDocument.actions.map((action) => (
+        {sceneDocument.actions.map((action, index) => (
           <Sequence
             key={action.id}
             from={Math.round(action.atSeconds * fps)}
             durationInFrames={Math.max(1, Math.round(action.durationSeconds * fps))}
           >
             <ActionRenderer action={action} />
+            {/* A subtle transition sound on every scene cut but the first
+                (the video's own open needs no whoosh into itself). */}
+            {index > 0 && <Audio src={staticFile("sfx/scene-whoosh.mp3")} volume={0.25} />}
           </Sequence>
         ))}
       </AbsoluteFill>
