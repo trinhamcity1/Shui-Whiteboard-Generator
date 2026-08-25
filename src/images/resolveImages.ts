@@ -51,7 +51,19 @@ function collectAssetIdTargets(sceneDocument: SceneDocument): AssetIdTarget[] {
 
   for (const action of sceneDocument.actions) {
     if (action.assetId && !action.imageUrl) {
-      targets.push({ assetId: action.assetId, label: `action "${action.id}"`, setUrl: (url) => (action.imageUrl = url) });
+      targets.push({
+        assetId: action.assetId,
+        label: `action "${action.id}"`,
+        setUrl: (url) => (action.imageUrl = url),
+        // FullBleedGraphic needs this to tell a full-scene illustration
+        // (safe to objectFit:"cover" edge-to-edge) apart from a narrow
+        // character cutout (cover would blow it up and crop off the head —
+        // a real bug hit putting a narrator reaction there directly).
+        setDimensions: (widthPx, heightPx) => {
+          action.imageWidthPx = widthPx;
+          action.imageHeightPx = heightPx;
+        },
+      });
     }
 
     const diagram = action.sketchDiagram;

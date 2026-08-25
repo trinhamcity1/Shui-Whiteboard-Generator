@@ -10,10 +10,14 @@ export function FullBleedGraphic({
   imageUrl,
   caption,
   startFrame,
+  imageWidthPx,
+  imageHeightPx,
 }: {
   imageUrl: string;
   caption?: string;
   startFrame: number;
+  imageWidthPx?: number;
+  imageHeightPx?: number;
 }) {
   const frame = useCurrentFrame();
   const theme = useTheme();
@@ -25,6 +29,22 @@ export function FullBleedGraphic({
         extrapolateRight: "clamp",
       });
 
+  // A real render put a narrow character cutout (narrator-confident,
+  // 134x383 — aspect 0.35) through this component: objectFit "cover" scales
+  // to fill BOTH dimensions of the tall 1080x1920 canvas, and an image this
+  // much narrower than the canvas needs an 8x scale-up to cover the width
+  // alone, which pushed the scaled height to ~3100px and center-cropped
+  // away the top third — decapitating the character on screen, plus
+  // visibly blurring a small source image blown up 8x. "Cover" is correct
+  // for genuine full-scene concept art (usually landscape/square, a small
+  // edge crop is harmless); a character-shaped cutout needs the whole
+  // figure visible instead, grounded at the bottom like a real full-bleed
+  // character shot. 0.62 sits between the canvas's own 0.5625 aspect and
+  // the narrowest normal full-scene asset seen in the library, so this
+  // only triggers for something meaningfully narrower than the canvas.
+  const isCharacterShaped =
+    imageWidthPx !== undefined && imageHeightPx !== undefined && imageWidthPx / imageHeightPx < 0.62;
+
   return (
     // theme.background (the paper tone), not theme.ink — the trained model
     // frequently returns a character cutout with a transparent margin
@@ -35,12 +55,22 @@ export function FullBleedGraphic({
     <AbsoluteFill style={{ background: theme.background }}>
       <Img
         src={imageUrl}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity,
-        }}
+        style={
+          isCharacterShaped
+            ? {
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                objectPosition: "center bottom",
+                opacity,
+              }
+            : {
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                opacity,
+              }
+        }
       />
       {caption && (
         <div

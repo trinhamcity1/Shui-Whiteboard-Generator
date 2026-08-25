@@ -50,7 +50,15 @@ function ActionContent({ action }: { action: SceneAction }) {
     case "quote":
       return <Quote text={action.text ?? ""} attribution={action.attribution} startFrame={0} />;
     case "fullBleedGraphic":
-      return <FullBleedGraphic imageUrl={action.imageUrl ?? ""} caption={action.attribution} startFrame={0} />;
+      return (
+        <FullBleedGraphic
+          imageUrl={action.imageUrl ?? ""}
+          caption={action.attribution}
+          startFrame={0}
+          imageWidthPx={action.imageWidthPx}
+          imageHeightPx={action.imageHeightPx}
+        />
+      );
     case "sketchDiagram": {
       const diagram = action.sketchDiagram;
       if (!diagram) return null;

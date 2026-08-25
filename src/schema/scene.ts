@@ -253,6 +253,13 @@ export const SceneAction = z
     // path for any recurring character/prop. imageConcept stays supported
     // as the documented fallback for a genuinely one-off illustration.
     assetId: z.string().optional(),
+    // Populated by resolveImages alongside imageUrl, never author-supplied
+    // — same discipline as the composition-slot fields of the same name.
+    // FullBleedGraphic uses these to detect a narrow character cutout
+    // (which objectFit:"cover" would blow up and crop off the head) versus
+    // a genuine full-scene illustration (safe to cover edge-to-edge).
+    imageWidthPx: z.number().optional(),
+    imageHeightPx: z.number().optional(),
     sketchDiagram: SketchDiagramSpec.optional(),
     composition: CompositionSpec.optional(),
     attribution: z.string().optional(),

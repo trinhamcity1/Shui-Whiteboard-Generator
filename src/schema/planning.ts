@@ -111,10 +111,17 @@ Rules:
   - iconCallout: "icon" (must be one of: ${AVAILABLE_ICON_NAMES.join(", ")}) and "text". Before reaching for
     this, check whether a narrator character reacting fits instead (narrator-celebrating for encouragement,
     narrator-thinking for a tip or "here's the trick," narrator-confident for reassurance, narrator-pointing
-    for "here's what matters") — set that assetId on a plain fullBleedGraphic action rather than using
-    iconCallout. A meta/instructional beat with no concrete object to draw (encouragement, test-taking
-    advice, "any of these works") almost always still has a person reacting to draw, which reads as part of
-    the same illustrated film instead of a different, flatter kind of scene. Reserve iconCallout itself for
+    for "here's what matters") — use a "composition" action with templateId "hero-backdrop", that
+    character's assetId in the "character" slot (leave "backdrop" unset — it's optional), and the line
+    itself in the "caption" slot, rather than using iconCallout. Do NOT put a bare character assetId
+    directly on a plain fullBleedGraphic action — these character images are narrow cropped cutouts (one is
+    barely a third as wide as it is tall), and fullBleedGraphic fills the ENTIRE frame edge-to-edge, which
+    for a cutout this narrow means blowing it up far past its real size and cropping off the top of the
+    figure (a real render lost the character's head this way). hero-backdrop's character slot already sizes
+    and grounds a cutout correctly. A meta/instructional beat with no concrete object to draw (encouragement,
+    test-taking advice, "any of these works") almost always still has a person reacting to draw, which reads
+    as part of the same illustrated film instead of a different, flatter kind of scene. Reserve iconCallout
+    itself for
     the rare beat where even a reacting character is a stretch.
   - timeline: "timelineEntries" (array of {"year": number, "label": string})
   - comparisonCards: "comparisonCards" (array of {"title": string, "items": string[]})
