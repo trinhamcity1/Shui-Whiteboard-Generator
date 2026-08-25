@@ -168,7 +168,27 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
   const { width: canvasWidth } = useVideoConfig();
 
   const attachmentStyle = resolveAttachmentStyle(slots, character, canvasWidth);
-  const characterStyle: React.CSSProperties = attachmentStyle ?? { position: "absolute", right: 60, top: 900, height: 500, width: 400 };
+  // The small bottom-right box below was sized for a character REACTING to
+  // a backdrop that fills most of the frame — with no backdrop (a real,
+  // common case: the planner now routes a solo reacting-character beat
+  // through this template's character slot alone), that box left most of
+  // the canvas empty, a real dead-zone complaint on a live render. Without
+  // a backdrop, the character becomes the entire scene's subject instead
+  // and gets sized/centered accordingly — large, grounded, centered
+  // between the title and caption.
+  const hasBackdrop = Boolean(backdrop?.imageUrl);
+  const soloCharacterStyle: React.CSSProperties = {
+    position: "absolute",
+    left: "8%",
+    right: "8%",
+    top: 300,
+    bottom: 260,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-end",
+  };
+  const characterStyle: React.CSSProperties =
+    attachmentStyle ?? (hasBackdrop ? { position: "absolute", right: 60, top: 900, height: 500, width: 400 } : soloCharacterStyle);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -188,7 +208,13 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
             style={
               attachmentStyle
                 ? { height: "100%", width: "auto", display: "block", transform: "translateX(-50%)" }
-                : { height: "100%", width: "auto", display: "block", marginLeft: "auto" }
+                : hasBackdrop
+                  ? { height: "100%", width: "auto", display: "block", marginLeft: "auto" }
+                  : // A wide-armed pose (e.g. celebrating with both arms out) scaled
+                    // by height alone can be wider than the box — maxWidth caps it
+                    // on that axis too, same "fit within both bounds" as objectFit
+                    // "contain", so an arm never gets cropped at the frame edge.
+                    { maxHeight: "100%", maxWidth: "100%", width: "auto", height: "auto", display: "block" }
             }
           />
         </SlotReveal>
