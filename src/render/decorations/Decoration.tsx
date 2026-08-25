@@ -90,8 +90,12 @@ export function DecorationLayer({ decorations, width = 1080, height = 1920, inst
           as siblings instead. */}
       {decorations.map((d, i) =>
         d.kind === "checkmark" ? (
+          // volume=0.35 was inaudible on a real render — see
+          // SceneRenderer.tsx's scene-whoosh comment for the measured
+          // reason (buried under full-volume simultaneous narration, then
+          // further attenuated by AAC's psychoacoustic encoding).
           <Sequence key={`sfx-${i}`} from={Math.round((d.revealAtSeconds ?? 0) * fps)} durationInFrames={30}>
-            <Audio src={staticFile("sfx/reveal-chime.mp3")} volume={0.35} />
+            <Audio src={staticFile("sfx/reveal-chime.mp3")} volume={0.7} />
           </Sequence>
         ) : null,
       )}

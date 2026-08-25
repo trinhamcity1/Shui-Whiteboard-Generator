@@ -125,9 +125,21 @@ export function SceneRenderer({ sceneDocument, audioFileName }: SceneRendererPro
             durationInFrames={Math.max(1, Math.round(action.durationSeconds * fps))}
           >
             <ActionRenderer action={action} />
-            {/* A subtle transition sound on every scene cut but the first
-                (the video's own open needs no whoosh into itself). */}
-            {index > 0 && <Audio src={staticFile("sfx/scene-whoosh.mp3")} volume={0.25} />}
+            {/* A transition sound on every scene cut but the first (the
+                video's own open needs no whoosh into itself). volume=0.25
+                (a guess with no calibration against this project's actual
+                narration loudness) turned out inaudible on a real render —
+                narration plays at full volume with no attenuation, and a
+                short, quiet effect layered directly under continuous
+                speech gets buried, then further attenuated by AAC's
+                psychoacoustic encoding, which favors the perceptually
+                dominant simultaneous voice. Confirmed via cross-correlating
+                the source effect against the decoded output audio: at 0.25
+                it was undetectable in a real 58s narrated render even
+                though the same effect was clearly present in a short,
+                sparse synthetic test. 0.7 is audible against narration
+                without being jarring. */}
+            {index > 0 && <Audio src={staticFile("sfx/scene-whoosh.mp3")} volume={0.7} />}
           </Sequence>
         ))}
       </AbsoluteFill>

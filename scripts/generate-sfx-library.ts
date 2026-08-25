@@ -2,6 +2,7 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { generateSoundEffect } from "../src/sfx/generateSoundEffect";
+import { normalizeLoudness } from "../src/sfx/normalizeLoudness";
 
 // A small, reusable sound-effect library, generated once through
 // ElevenLabs' Sound Effects API (same account/key as narration TTS) and
@@ -38,7 +39,13 @@ async function main() {
     const entry = toGenerate[i]!;
     process.stdout.write(`[${i + 1}/${toGenerate.length}] ${entry.id}... `);
     const result = await generateSoundEffect(apiKey, entry.prompt, { durationSeconds: entry.durationSeconds });
-    fs.writeFileSync(path.join(sfxDir, `${entry.id}.mp3`), result.audioBuffer);
+    // Two effects generated at wildly different natural loudness for the
+    // same Remotion volume prop — normalizing here means every future
+    // effect added to this library plays back at a consistent level
+    // without needing a hand-tuned volume constant per file. See
+    // normalizeLoudness.ts for the measured evidence.
+    const normalized = await normalizeLoudness(result.audioBuffer);
+    fs.writeFileSync(path.join(sfxDir, `${entry.id}.mp3`), normalized);
     totalCost += result.costUsd;
     console.log("done");
   }
