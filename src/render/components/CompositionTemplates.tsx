@@ -177,6 +177,15 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
   // and gets sized/centered accordingly — large, grounded, centered
   // between the title and caption.
   const hasBackdrop = Boolean(backdrop?.imageUrl);
+  // alignItems "flex-end" (grounding the character at the box's bottom
+  // edge) was the actual cause of the "dead zone above the character"
+  // complaint that survived the first two fix attempts: most character
+  // poses are wider than the box is tall relative to its width, so they hit
+  // their max-width limit before filling the box's height — every pixel of
+  // that shortfall then landed entirely above the character as one large
+  // gap. Centering instead splits that same shortfall evenly above and
+  // below, which reads as normal breathing room next to the caption rather
+  // than a block of empty canvas with nothing in it.
   const soloCharacterStyle: React.CSSProperties = {
     position: "absolute",
     left: "8%",
@@ -185,7 +194,7 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
     bottom: 260,
     display: "flex",
     justifyContent: "center",
-    alignItems: "flex-end",
+    alignItems: "center",
   };
   const characterStyle: React.CSSProperties =
     attachmentStyle ?? (hasBackdrop ? { position: "absolute", right: 60, top: 900, height: 500, width: 400 } : soloCharacterStyle);
