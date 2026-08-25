@@ -6,6 +6,7 @@ import { getImageProvider, defaultImageProviderName, type ImageProviderName } fr
 import { resolveImages, type ImageResolutionResult } from "../images/resolveImages";
 import { TrainedStyleImageProvider } from "../images/trainedStyle";
 import { getEchoModel } from "../storage/firestore";
+import { ICON_ASSET_ID_MAP } from "../render/icons/registry";
 
 export interface PreAuthoredRequest {
   scenes: unknown; // validated against SceneDocument below
@@ -77,6 +78,21 @@ function isPreAuthored(request: SceneDocumentRequest): request is PreAuthoredReq
 
 function isTopicRequest(request: SceneDocumentRequest): request is TopicRequest {
   return "topic" in request && request.topic !== undefined;
+}
+
+/**
+ * The planner only ever picks from the fixed icon-name vocabulary
+ * (ICON_ASSET_ID_MAP's keys), never an assetId directly — this maps each
+ * name onto the hand-drawn library asset that backs it, the same way an
+ * imageUrl gets filled in for every other assetId reference below. Mutates
+ * in place, same discipline as resolveImages' own generic resolution step.
+ */
+export function applyIconAssetIds(sceneDocument: SceneDocument): void {
+  for (const action of sceneDocument.actions) {
+    if (action.type !== "iconCallout" || action.assetId || !action.icon) continue;
+    const assetId = ICON_ASSET_ID_MAP[action.icon];
+    if (assetId) action.assetId = assetId;
+  }
 }
 
 function needsImageResolution(sceneDocument: SceneDocument): boolean {
@@ -172,6 +188,7 @@ export async function resolveSceneDocument(request: SceneDocumentRequest): Promi
 
   if (isPreAuthored(request)) {
     const sceneDocument = parseSceneDocument(request.scenes);
+    applyIconAssetIds(sceneDocument);
     const imageResolution = await resolveImagesIfNeeded(sceneDocument, request.imageProvider, request.echoModelId);
     return { sceneDocument, imageResolution };
   }
@@ -215,6 +232,7 @@ export async function resolveSceneDocument(request: SceneDocumentRequest): Promi
     backgroundTrack: scriptRequest.backgroundTrack,
     actions: planResult.actions,
   });
+  applyIconAssetIds(sceneDocument);
 
   const imageResolution = await resolveImagesIfNeeded(sceneDocument, scriptRequest.imageProvider, scriptRequest.echoModelId);
 

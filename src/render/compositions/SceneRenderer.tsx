@@ -40,7 +40,7 @@ function ActionContent({ action }: { action: SceneAction }) {
     case "bulletList":
       return <BulletList items={action.items ?? []} startFrame={0} />;
     case "iconCallout":
-      return <IconCallout icon={action.icon ?? ""} text={action.text ?? ""} startFrame={0} />;
+      return <IconCallout icon={action.icon ?? ""} text={action.text ?? ""} startFrame={0} imageUrl={action.imageUrl} />;
     case "documentReveal":
       return <DocumentReveal imageUrl={action.imageUrl ?? ""} attribution={action.attribution} startFrame={0} />;
     case "timeline":

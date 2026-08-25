@@ -320,6 +320,66 @@ export const ASSET_MANIFEST: AssetManifestEntry[] = [
     provider: "flux",
     description: "a single jigsaw puzzle piece, viewed straight-on",
   },
+  // These seven back IconCallout's icon vocabulary — that component used to
+  // render a generic Heroicons badge instead of the hand-drawn library art
+  // every other scene type uses, which read as an off-brand, cheaper-looking
+  // component. Filling the remaining gaps in the icon vocabulary (the other
+  // 11 names already had a matching prop above) lets it render entirely
+  // from this library instead.
+  {
+    id: "prop-document",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    description: "a single sheet of paper with a few horizontal lines of text, viewed straight-on, no visible words",
+  },
+  {
+    id: "prop-x-mark",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    description: "a bold X mark inside a rounded circle",
+  },
+  {
+    id: "prop-star",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    description: "a single five-pointed star, solid fill, viewed straight-on",
+  },
+  {
+    id: "prop-graduation-cap",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    description: "a single graduation mortarboard cap with a tassel, viewed from above at a slight angle",
+  },
+  {
+    id: "prop-speech-bubble",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    // The original "empty, no words inside" description came back as a
+    // blank white image — with no interior lines specified, the model drew
+    // the bubble's outline in a near-white ink that background removal then
+    // wiped along with the true background. A thick, dark outline is now
+    // spelled out explicitly, same fix pattern as prop-scale-balance above.
+    description: "a single rounded speech bubble with a small pointer tail, drawn with a thick black outline, empty white interior, no words inside",
+  },
+  {
+    id: "prop-flag",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    description: "a simple rectangular flag on a pole, planted upright, no visible emblem",
+  },
+  {
+    id: "prop-two-people",
+    tier: "shared",
+    role: "prop",
+    provider: "flux",
+    description: "two simple person silhouettes standing side by side, no visible faces",
+  },
 
   // ── Tier: business vertical ───────────────────────────────────────────
   // Phase 5's first Vertical-tier entry (of the doc's proposed five) —

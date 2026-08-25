@@ -108,7 +108,14 @@ Rules:
 - Type-specific required fields:
   - titleCard: "text" (short string)
   - bulletList: "items" (array of short strings)
-  - iconCallout: "icon" (must be one of: ${AVAILABLE_ICON_NAMES.join(", ")}) and "text"
+  - iconCallout: "icon" (must be one of: ${AVAILABLE_ICON_NAMES.join(", ")}) and "text". Before reaching for
+    this, check whether a narrator character reacting fits instead (narrator-celebrating for encouragement,
+    narrator-thinking for a tip or "here's the trick," narrator-confident for reassurance, narrator-pointing
+    for "here's what matters") — set that assetId on a plain fullBleedGraphic action rather than using
+    iconCallout. A meta/instructional beat with no concrete object to draw (encouragement, test-taking
+    advice, "any of these works") almost always still has a person reacting to draw, which reads as part of
+    the same illustrated film instead of a different, flatter kind of scene. Reserve iconCallout itself for
+    the rare beat where even a reacting character is a stretch.
   - timeline: "timelineEntries" (array of {"year": number, "label": string})
   - comparisonCards: "comparisonCards" (array of {"title": string, "items": string[]})
   - quote: "text" (and optionally "attribution")

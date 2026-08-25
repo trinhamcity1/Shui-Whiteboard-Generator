@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
 import { SketchDiagram } from "./SketchDiagram";
 import { SKETCH_COLORS, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss } from "../sketchStyle";
@@ -36,6 +36,34 @@ export interface CompositionTemplateProps {
 function useSlotOffsetFrames(slot: CompositionSlot | undefined): number {
   const { fps } = useVideoConfig();
   return Math.round((slot?.revealAtSeconds ?? 0) * fps);
+}
+
+/** A storyboard connector arrow, faded in at the same startFrame as the
+ * panel it points TO — a real render showed all connector arrows drawn at
+ * frame 0 while the panels they connected only appeared later (each
+ * panel's own revealAtSeconds), reading as the arrow pointing at nothing.
+ * SVG <line>/<marker> can't be wrapped in DrawOn's div, so this reimplements
+ * the same fade-in math directly on the line's own opacity. */
+function StoryboardArrow({ x1, y1, x2, y2, revealFrames }: { x1: number; y1: number; x2: number; y2: number; revealFrames: number }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const revealDuration = Math.round(fps * 0.4);
+  const opacity = interpolate(frame, [revealFrames, revealFrames + revealDuration], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <line
+      x1={x1}
+      y1={y1}
+      x2={x2}
+      y2={y2}
+      stroke={SKETCH_COLORS.accentArrow}
+      strokeWidth={5}
+      markerEnd="url(#storyboard-arrowhead)"
+      opacity={opacity}
+    />
+  );
 }
 
 /** Collects every slot's decorations into one full-bleed overlay — decoration coordinates are absolute canvas-space, same as a plain action's. */
@@ -262,7 +290,8 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
   const panels = ["panel1", "panel2", "panel3", "panel4"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
   const { positions, widthPct } = computePanelLayout(panels.length);
   const isGrid = panels.length === 4;
-  const { width: canvasWidth, height: canvasHeight } = useVideoConfig();
+  const { width: canvasWidth, height: canvasHeight, fps } = useVideoConfig();
+  const revealFramesFor = (panel: CompositionSlot | undefined) => Math.round((panel?.revealAtSeconds ?? 0) * fps);
 
   // Panel center, in px, for drawing a reading-order arrow between two
   // panels — used for the single-row layout's straight left-to-right
@@ -294,27 +323,28 @@ export function Storyboard4PanelTemplate({ title, slots }: CompositionTemplatePr
           </marker>
         )}
         {isGrid ? (
-          // 1→2 (horizontal), 2→3 (diagonal wrap), 3→4 (horizontal) — reading order across the 2x2 grid.
+          // 1→2 (horizontal), 2→3 (diagonal wrap), 3→4 (horizontal) — reading
+          // order across the 2x2 grid. Each arrow reveals with the panel it
+          // points TO, not at frame 0.
           <>
-            {panels.length > 1 && <line x1={486} y1={430} x2={572} y2={430} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
-            {panels.length > 2 && <line x1={756} y1={640} x2={216} y2={920} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
-            {panels.length > 3 && <line x1={486} y1={1130} x2={572} y2={1130} stroke={SKETCH_COLORS.accentArrow} strokeWidth={5} markerEnd="url(#storyboard-arrowhead)" />}
+            {panels.length > 1 && <StoryboardArrow x1={486} y1={430} x2={572} y2={430} revealFrames={revealFramesFor(panels[1])} />}
+            {panels.length > 2 && <StoryboardArrow x1={756} y1={640} x2={216} y2={920} revealFrames={revealFramesFor(panels[2])} />}
+            {panels.length > 3 && <StoryboardArrow x1={486} y1={1130} x2={572} y2={1130} revealFrames={revealFramesFor(panels[3])} />}
           </>
         ) : (
-          // Single row — a straight left-to-right chain between each panel's actual center.
+          // Single row — a straight left-to-right chain between each panel's
+          // actual center, each arrow revealing with the panel it points TO.
           positions.slice(0, -1).map((pos, i) => {
             const next = positions[i + 1]!;
             const y = pos.top + 300;
             return (
-              <line
+              <StoryboardArrow
                 key={i}
                 x1={centerXPx(pos) + (widthPct / 100) * 1080 * 0.55}
                 y1={y}
                 x2={centerXPx(next) - (widthPct / 100) * 1080 * 0.55}
                 y2={y}
-                stroke={SKETCH_COLORS.accentArrow}
-                strokeWidth={5}
-                markerEnd="url(#storyboard-arrowhead)"
+                revealFrames={revealFramesFor(panels[i + 1])}
               />
             );
           })

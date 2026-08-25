@@ -56,3 +56,33 @@ export function getIconComponent(name: string): IconComponent {
   }
   return icon;
 }
+
+/**
+ * Maps the same fixed icon vocabulary onto a hand-drawn library asset —
+ * IconCallout renders this image instead of the flat Heroicons badge above,
+ * which was the one component in the whole render pipeline that never
+ * touched the sketch-style art (a real product-feedback complaint: it read
+ * as a generic, "cheap" component next to everything else). The Heroicons
+ * registry above stays only as the pre-resolution fallback (previewPlan.ts,
+ * any render that hasn't gone through resolveImages yet).
+ */
+export const ICON_ASSET_ID_MAP: Record<string, string> = {
+  "scale-of-justice": "prop-scale-balance",
+  "book-open": "prop-book",
+  "document-text": "prop-document",
+  "check-circle": "prop-checkmark",
+  "x-circle": "prop-x-mark",
+  globe: "prop-globe",
+  users: "prop-two-people",
+  star: "prop-star",
+  "academic-cap": "prop-graduation-cap",
+  "shield-check": "prop-shield",
+  calendar: "prop-calendar",
+  "chat-bubble": "prop-speech-bubble",
+  "light-bulb": "prop-lightbulb",
+  "currency-dollar": "prop-dollar-sign",
+  home: "prop-house",
+  "map-pin": "prop-map-pin",
+  clock: "prop-clock",
+  flag: "prop-flag",
+};

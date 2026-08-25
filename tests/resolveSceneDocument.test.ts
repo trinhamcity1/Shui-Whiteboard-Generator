@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resolveSceneDocument } from "../src/pipeline/resolveSceneDocument";
+import { resolveSceneDocument, applyIconAssetIds } from "../src/pipeline/resolveSceneDocument";
+import { parseSceneDocument } from "../src/schema/scene";
 
 const scenes = {
   schemaVersion: 1,
@@ -19,6 +20,26 @@ describe("resolveSceneDocument", () => {
     const { sceneDocument, scenePlanning } = await resolveSceneDocument({ scenes });
     expect(sceneDocument.actions).toHaveLength(1);
     expect(scenePlanning).toBeUndefined();
+  });
+
+  it("applyIconAssetIds maps an iconCallout's icon name onto its hand-drawn library asset", () => {
+    const sceneDocument = parseSceneDocument({
+      ...scenes,
+      actions: [{ id: "a1", type: "iconCallout", atSeconds: 0, durationSeconds: 3, icon: "star", text: "Nice work!" }],
+    });
+    applyIconAssetIds(sceneDocument);
+    expect(sceneDocument.actions[0]!.assetId).toBe("prop-star");
+  });
+
+  it("applyIconAssetIds never overwrites an assetId the author already set", () => {
+    const sceneDocument = parseSceneDocument({
+      ...scenes,
+      actions: [
+        { id: "a1", type: "iconCallout", atSeconds: 0, durationSeconds: 3, icon: "star", text: "Nice work!", assetId: "narrator-celebrating" },
+      ],
+    });
+    applyIconAssetIds(sceneDocument);
+    expect(sceneDocument.actions[0]!.assetId).toBe("narrator-celebrating");
   });
 
   it("rejects a request with none of scenes/narrationScript/topic", async () => {
