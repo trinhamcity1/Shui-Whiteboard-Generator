@@ -19,10 +19,16 @@ import { SHARED_STYLE } from "./candidatePrompts";
 // still depend on.
 const STYLE_WITHOUT_FACE_CLAUSE = SHARED_STYLE.replace(/,?\s*simple cartoon face,?/, ",");
 
+// Revision 4 gap: this suffix said "off-white" — the literal warm shade
+// SHARED_STYLE's own revision-4 fix moved away from — and it's appended
+// AFTER SHARED_STYLE's text, so it silently overrode that fix on every
+// single library asset this file generates. Found by tracing a residual
+// warm-cast asset back through its actual generation prompt rather than
+// trusting that fixing SHARED_STYLE alone was sufficient.
 const BASE_STYLE_SUFFIX =
-  ". Standalone illustration on a FLAT, SOLID, PERFECTLY UNIFORM off-white " +
-  "background color — no vignette, no glow, no gradient, no shading or wash of any kind " +
-  "behind the subject. No signature.";
+  ". Standalone illustration on a FLAT, SOLID, PERFECTLY UNIFORM cool white " +
+  "background color — no vignette, no glow, no gradient, no shading or wash of any kind, " +
+  "no warm/yellow/cream tint, behind the subject. No signature.";
 
 const CHARACTER_BASE_STYLE = `${SHARED_STYLE}${BASE_STYLE_SUFFIX}`;
 const PROP_BASE_STYLE = `${STYLE_WITHOUT_FACE_CLAUSE}${BASE_STYLE_SUFFIX}`;

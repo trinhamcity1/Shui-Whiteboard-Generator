@@ -109,21 +109,29 @@ async function runStyleSelfCheck(
   model?: string,
 ): Promise<{ passed: boolean; reason?: string; costUsd: number }> {
   const client = new Anthropic({ apiKey });
+  // Revision 4: the "warm painterly" wording below used to describe the
+  // accepted house style — it stopped being true the moment the palette
+  // moved to a cool educator-friendly tone, but this quality gate was never
+  // updated, so it kept explicitly APPROVING warm/yellow-cast output as
+  // correct rather than flagging it. Found while tracing why a warm-toned
+  // scene asset made it all the way to a real render despite the "fixed"
+  // library.
   const system = requireTransparency
     ? `You are a quality gate for a whiteboard-video illustration library. Every asset should be a
-clean warm painterly storybook-style illustration on a transparent background, with no baked-in
-text/lettering/watermark, no obvious rendering artifacts (garbled shapes, extra limbs, melted
-features), and no leftover background wash or vignette. Respond with ONLY a JSON object:
-{"passed": boolean, "reason": string | null} — reason explains a failure in one short sentence,
-null if passed.`
+clean, cool-toned painterly storybook-style illustration on a transparent background, with no
+warm/yellow/orange/sepia/cream color cast, no baked-in text/lettering/watermark, no obvious
+rendering artifacts (garbled shapes, extra limbs, melted features), and no leftover background
+wash or vignette. Flag any noticeably warm/yellow-tinted result as a failure. Respond with ONLY a
+JSON object: {"passed": boolean, "reason": string | null} — reason explains a failure in one short
+sentence, null if passed.`
     : `You are a quality gate for a whiteboard-video illustration library. This asset is a full
 illustrated SCENE/backdrop meant to be shown whole (not a cutout on a transparent background) —
 do NOT flag it for having a real background, that's expected and correct here. It should be a
-clean warm painterly storybook-style illustration filling the frame, with no baked-in
-text/lettering/watermark and no obvious rendering artifacts (garbled shapes, extra limbs, melted
-features, nonsensical geometry). Respond with ONLY a JSON object:
-{"passed": boolean, "reason": string | null} — reason explains a failure in one short sentence,
-null if passed.`;
+clean, cool-toned painterly storybook-style illustration filling the frame, with no warm/yellow/
+orange/sepia color cast, no baked-in text/lettering/watermark and no obvious rendering artifacts
+(garbled shapes, extra limbs, melted features, nonsensical geometry). Flag any noticeably
+warm/yellow-tinted result as a failure. Respond with ONLY a JSON object: {"passed": boolean,
+"reason": string | null} — reason explains a failure in one short sentence, null if passed.`;
 
   const response = await client.messages.create({
     model: model ?? MODEL,

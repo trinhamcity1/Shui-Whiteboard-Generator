@@ -196,8 +196,31 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
     justifyContent: "center",
     alignItems: "center",
   };
-  const characterStyle: React.CSSProperties =
-    attachmentStyle ?? (hasBackdrop ? { position: "absolute", right: 60, top: 900, height: 500, width: 400 } : soloCharacterStyle);
+  // Revision 4: the "reacting character beside a backdrop" box used to be
+  // pinned hard-right at a fixed top:900 guess — a real render (a courthouse
+  // backdrop + judge) showed the backdrop's actual rendered height falling
+  // well short of that guess, and because the box only ever occupied the
+  // frame's right side, the entire left half below the backdrop was left as
+  // bare paper, not just a small gap. Two fixes: derive the reactor's top
+  // from the backdrop's real rendered height (via its resolved pixel
+  // dimensions) instead of a fixed guess, and center the reactor
+  // horizontally like the no-backdrop case instead of parking it at one
+  // edge, so any leftover space splits evenly instead of pooling on one side.
+  const BACKDROP_TOP = 220;
+  const backdropWidthPx = canvasWidth * 0.8;
+  const backdropAspect = backdrop?.imageWidthPx && backdrop?.imageHeightPx ? backdrop.imageHeightPx / backdrop.imageWidthPx : undefined;
+  const backdropBottom = BACKDROP_TOP + (backdropAspect ? backdropWidthPx * backdropAspect : 620);
+  const reactorStyle: React.CSSProperties = {
+    position: "absolute",
+    left: "20%",
+    right: "20%",
+    top: backdropBottom + 30,
+    bottom: 260,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  };
+  const characterStyle: React.CSSProperties = attachmentStyle ?? (hasBackdrop ? reactorStyle : soloCharacterStyle);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -217,13 +240,15 @@ export function HeroBackdropTemplate({ title, slots }: CompositionTemplateProps)
             style={
               attachmentStyle
                 ? { height: "100%", width: "auto", display: "block", transform: "translateX(-50%)" }
-                : hasBackdrop
-                  ? { height: "100%", width: "auto", display: "block", marginLeft: "auto" }
-                  : // A wide-armed pose (e.g. celebrating with both arms out) scaled
-                    // by height alone can be wider than the box — maxWidth caps it
-                    // on that axis too, same "fit within both bounds" as objectFit
-                    // "contain", so an arm never gets cropped at the frame edge.
-                    { maxHeight: "100%", maxWidth: "100%", width: "auto", height: "auto", display: "block" }
+                : // A wide-armed pose (e.g. celebrating with both arms out) scaled
+                  // by height alone can be wider than the box — maxWidth caps it
+                  // on that axis too, same "fit within both bounds" as objectFit
+                  // "contain", so an arm never gets cropped at the frame edge.
+                  // Now shared by both the with- and without-backdrop cases —
+                  // the with-backdrop box is centered like the solo one, not
+                  // right-anchored, so it no longer needs its own marginLeft:
+                  // "auto" right-alignment rule.
+                  { maxHeight: "100%", maxWidth: "100%", width: "auto", height: "auto", display: "block" }
             }
           />
         </SlotReveal>
@@ -447,12 +472,19 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
   // aspect ratio inside a fixed-width box, which on a tall vertical canvas
   // left most of the frame empty below it — the real bug a reviewer
   // flagged. A fixed height (capped so a very wide image doesn't stretch
-  // into an absurdly tall sliver) plus objectFit "cover" makes each box
-  // actually fill most of the vertical frame, the "split the screen in
-  // half" look, instead of floating as a small card near the top.
+  // into an absurdly tall sliver) fills each box's footprint predictably.
+  //
+  // Revision 4: that fixed height used objectFit "cover" to actually fill
+  // it, which on a real render zoomed a simple, mostly-empty line-art
+  // illustration in so far it read as an abstract crop of stray lines —
+  // recognizable content, not a photo, doesn't survive an aggressive crop
+  // the way a photo does. "contain" now shows the whole illustration
+  // (letterboxed on panelFill, which already reads as a picture-frame mat
+  // here, not a dead zone) and the height cap is a touch shorter so that
+  // matting stays modest rather than dominating the box.
   const boxWidthPx = canvasWidth * 0.42;
   const availableHeight = canvasHeight - COMPARISON_BOX_TOP - COMPARISON_LABEL_RESERVE - 60;
-  const boxHeight = Math.min(availableHeight, boxWidthPx * 1.6);
+  const boxHeight = Math.min(availableHeight, boxWidthPx * 1.3);
   const dividerCenterY = COMPARISON_BOX_TOP + boxHeight / 2;
 
   const boxStyle: React.CSSProperties = {
@@ -470,7 +502,7 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
       {left && (
         <SlotReveal slot={left} style={{ position: "absolute", left: "4%", top: COMPARISON_BOX_TOP, width: "42%" }}>
           <div style={boxStyle}>
-            {left.imageUrl && <Img src={left.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "cover", display: "block" }} />}
+            {left.imageUrl && <Img src={left.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "contain", display: "block" }} />}
             {left.label && (
               <div style={{ marginTop: 10, textAlign: "center", fontFamily: SKETCH_FONT_FAMILY, fontSize: 26, color: SKETCH_COLORS.ink }}>
                 {left.label}
@@ -482,7 +514,7 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
       {right && (
         <SlotReveal slot={right} style={{ position: "absolute", right: "4%", top: COMPARISON_BOX_TOP, width: "42%" }}>
           <div style={boxStyle}>
-            {right.imageUrl && <Img src={right.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "cover", display: "block" }} />}
+            {right.imageUrl && <Img src={right.imageUrl} style={{ width: "100%", height: boxHeight, objectFit: "contain", display: "block" }} />}
             {right.label && (
               <div style={{ marginTop: 10, textAlign: "center", fontFamily: SKETCH_FONT_FAMILY, fontSize: 26, color: SKETCH_COLORS.ink }}>
                 {right.label}
@@ -505,23 +537,32 @@ export function Comparison2BoxTemplate({ title, slots, dividerStyle = "vs" }: Co
           </g>
         </svg>
       ) : (
+        // Revision 4: a plain white-on-white circle read as an afterthought
+        // next to two full illustrations — a real render's feedback. A
+        // filled accent badge with a slight hand-drawn tilt and a thin
+        // outer ring reads as a designed divider instead of a placeholder,
+        // while staying a simple CSS shape (no new asset dependency).
         <div
           style={{
             position: "absolute",
             left: "50%",
             top: dividerCenterY,
-            transform: "translate(-50%, -50%)",
-            width: 90,
-            height: 90,
+            transform: "translate(-50%, -50%) rotate(-6deg)",
+            width: 108,
+            height: 108,
             borderRadius: "50%",
             border: `3px solid ${SKETCH_COLORS.ink}`,
-            background: SKETCH_COLORS.panelFill,
+            outline: `3px solid ${SKETCH_COLORS.panelFill}`,
+            outlineOffset: 5,
+            boxShadow: `0 4px 0 ${SKETCH_COLORS.ink}`,
+            background: SKETCH_COLORS.signalRed,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontFamily: SKETCH_FONT_FAMILY,
-            fontSize: 32,
-            color: SKETCH_COLORS.ink,
+            fontSize: 34,
+            letterSpacing: 1,
+            color: SKETCH_COLORS.panelFill,
           }}
         >
           VS

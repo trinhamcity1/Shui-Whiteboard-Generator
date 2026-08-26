@@ -59,14 +59,23 @@ export class TrainedStyleImageProvider implements ImageProvider {
     // remover (built for a genuinely flat background) couldn't cleanly key
     // out either. Scene mode asks for the opposite and skips removal
     // entirely below.
+    //
+    // Revision 4 gap: this file's own hardcoded "warm painterly" + "cream
+    // background" wording was never updated when candidatePrompts.ts moved
+    // to the cool palette — it's a separate live one-off/fallback path (not
+    // the trained LoRA's baked-in style), so it kept generating warm output
+    // straight through the whole regeneration. Root cause of a real render's
+    // yellow-toned US-map backdrop surviving the "fixed" library.
     const prompt =
       backgroundMode === "scene"
-        ? `${this.styleModel.triggerWord}, warm painterly storybook illustration, ${concept}, ` +
+        ? `${this.styleModel.triggerWord}, cool-toned painterly storybook illustration, ${concept}, ` +
           "a fully rendered illustrated environment filling the entire frame, no flat color background, " +
-          "no vignette, no border, no text, no lettering"
-        : `${this.styleModel.triggerWord}, warm painterly storybook illustration, ${concept}, ` +
-          "FLAT SOLID UNIFORM cream background color only, no vignette, no glow, no gradient, " +
-          "no atmospheric lighting effect, no shading or wash behind the subject, no text, no lettering";
+          "no vignette, no border, no text, no lettering, no warm/yellow/orange/sepia color cast — " +
+          "cool and neutral tones only (blues, teals, cool grays, muted greens)"
+        : `${this.styleModel.triggerWord}, cool-toned painterly storybook illustration, ${concept}, ` +
+          "FLAT SOLID UNIFORM cool white background color only, no vignette, no glow, no gradient, " +
+          "no atmospheric lighting effect, no shading or wash behind the subject, no text, no lettering, " +
+          "no warm/yellow/cream color cast";
 
     const result = await fal.subscribe("fal-ai/flux-lora", {
       input: {

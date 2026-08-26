@@ -44,9 +44,16 @@ export type SketchDiagramProps = {
 const CANVAS_WIDTH = 1000;
 const PYRAMID_CANVAS_HEIGHT = 800;
 const PYRAMID_TOP_Y = 230;
-const TIER_HEIGHT = 100;
-const TOP_WIDTH = 260;
-const BOTTOM_WIDTH = 620;
+const TIER_HEIGHT = 120;
+const TIER_GAP = 26;
+// Revision 4: the pyramid/trapezoid shape is gone (see the doc comment
+// below tierPolygon's old home) — every tier is now a full-width rounded
+// card of the SAME width, so a label is never measured against one width
+// (BOTTOM_WIDTH) while actually confined by a narrower one (an upper
+// tier's true trapezoid width). That mismatch was the root cause of a real
+// render showing text spilling past a tier's visible edge, and of that
+// tier's inset icon floating outside the shape entirely.
+const STACK_WIDTH = 680;
 
 const FLOWCHART_BOX_WIDTH = 860;
 const FLOWCHART_BOX_HEIGHT = 130;
@@ -66,19 +73,20 @@ const COMPARISON_CANVAS_HEIGHT = 800;
 const TOP_LABEL_Y_NONPYRAMID = 95;
 const CONTENT_Y_OFFSET_WITH_LABEL = 55;
 
-function tierPolygon(index: number, total: number) {
-  const wTop = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * index) / total;
-  const wBottom = TOP_WIDTH + ((BOTTOM_WIDTH - TOP_WIDTH) * (index + 1)) / total;
-  const y0 = PYRAMID_TOP_Y + index * TIER_HEIGHT;
-  const y1 = y0 + TIER_HEIGHT;
+/** A stacked "hierarchy card" tier — same width and shape for every tier,
+ * top to bottom, connected by a short downward arrow instead of a
+ * tapering trapezoid claiming a ranking via width. */
+function tierPolygon(index: number) {
   const cx = CANVAS_WIDTH / 2;
+  const y0 = PYRAMID_TOP_Y + index * (TIER_HEIGHT + TIER_GAP);
+  const y1 = y0 + TIER_HEIGHT;
   const points: [number, number][] = [
-    [cx - wTop / 2, y0],
-    [cx + wTop / 2, y0],
-    [cx + wBottom / 2, y1],
-    [cx - wBottom / 2, y1],
+    [cx - STACK_WIDTH / 2, y0],
+    [cx + STACK_WIDTH / 2, y0],
+    [cx + STACK_WIDTH / 2, y1],
+    [cx - STACK_WIDTH / 2, y1],
   ];
-  return { points, midY: (y0 + y1) / 2 };
+  return { points, midY: (y0 + y1) / 2, cx };
 }
 
 function boxPoints(cx: number, cy: number, w: number, h: number): [number, number][] {
@@ -120,7 +128,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   const contentYOffset = topLabel && diagramType !== "pyramid" ? CONTENT_Y_OFFSET_WITH_LABEL : 0;
 
   const tierLayout = useMemo(
-    () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! }, ...tierPolygon(i, tiers.length) })),
+    () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! }, ...tierPolygon(i) })),
     [tiers],
   );
 
@@ -170,11 +178,16 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     });
   }, [tiers, contentYOffset]);
 
-  const canvasHeight =
-    diagramType === "flowchart" ? flowchartCanvasHeight : diagramType === "comparison" ? COMPARISON_CANVAS_HEIGHT + contentYOffset : PYRAMID_CANVAS_HEIGHT;
-
-  const pyramidStackHeight = tiers.length * TIER_HEIGHT;
+  const pyramidStackHeight = tiers.length * TIER_HEIGHT + Math.max(0, tiers.length - 1) * TIER_GAP;
   const pyramidBaseY = PYRAMID_TOP_Y + pyramidStackHeight;
+
+  const canvasHeight =
+    diagramType === "flowchart"
+      ? flowchartCanvasHeight
+      : diagramType === "comparison"
+        ? COMPARISON_CANVAS_HEIGHT + contentYOffset
+        : Math.max(PYRAMID_CANVAS_HEIGHT, pyramidBaseY + 200);
+
   const anchorBaseY = diagramType === "pyramid" ? pyramidBaseY : diagramType === "flowchart" ? flowchartCanvasHeight - 120 : COMPARISON_TOP_Y + contentYOffset + COMPARISON_BOX_HEIGHT;
   const characterHeight = (diagramType === "pyramid" ? pyramidStackHeight : anchorBaseY - 150) * SKETCH_LAYOUT.characterToPyramidHeightRatio;
   const characterTop = anchorBaseY - characterHeight;
@@ -265,17 +278,19 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       } else if (diagramType === "comparison") {
         comparisonBoxes.forEach(({ tier, points }, i) => drawBox(points, tier.color, 100 + i));
       } else {
-        tierLayout.forEach(({ tier, points }, i) => drawBox(points, tier.color, 100 + i));
-      }
-
-      // Pyramid keeps its original connecting arrow to the right-hand
-      // character — unchanged from the first-approved prototype.
-      if (diagramType === "pyramid") {
-        const arrowStartX = CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 + 10;
-        const arrowStartY = PYRAMID_TOP_Y + TIER_HEIGHT;
-        const arrowEndX = arrowStartX + 90;
-        const arrowEndY = arrowStartY + 110;
-        drawArrow(arrowStartX, arrowStartY, arrowEndX, arrowEndY, 1100);
+        // Revision 4: each tier card connects to the next with a short
+        // straight down-arrow instead of the old design's single diagonal
+        // arrow off to a flanking character — that arrow was a fixed pixel
+        // length regardless of where the character actually stood, so on
+        // a real render it visibly pointed at empty canvas, not the
+        // character it was meant to connect to.
+        tierLayout.forEach(({ tier, points, cx: tx }, i) => {
+          drawBox(points, tier.color, 100 + i);
+          if (i < tierLayout.length - 1) {
+            const next = tierLayout[i + 1]!;
+            drawArrow(tx, points[2]![1], next.cx, next.points[0]![1], 500 + i);
+          }
+        });
       }
 
       continueRender(handle);
@@ -425,8 +440,8 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
               <div
                 style={{
                   position: "absolute",
-                  left: CANVAS_WIDTH / 2 - BOTTOM_WIDTH / 2 + 40,
-                  width: BOTTOM_WIDTH - 80 - (tier.insetSrc ? insetSize + 16 : 0),
+                  left: CANVAS_WIDTH / 2 - STACK_WIDTH / 2 + 40,
+                  width: STACK_WIDTH - 80 - (tier.insetSrc ? insetSize + 16 : 0),
                   top: midY - fontSizeForLabel(tier.label, 34) * 0.65,
                   textAlign: "center",
                   fontFamily: SKETCH_FONT_FAMILY,
@@ -442,7 +457,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
                   src={tier.insetSrc}
                   style={{
                     position: "absolute",
-                    left: CANVAS_WIDTH / 2 + BOTTOM_WIDTH / 2 - insetSize - 24,
+                    left: CANVAS_WIDTH / 2 + STACK_WIDTH / 2 - insetSize - 24,
                     top: midY - insetSize / 2,
                     height: insetSize,
                     width: insetSize,
