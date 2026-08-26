@@ -70,7 +70,7 @@ export function BannerRibbon({ x, y, width, height, color = SKETCH_COLORS.ink, f
 }
 
 /** A curled-top-and-bottom parchment scroll — documents, constitutions. */
-export function Scroll({ x, y, width, height, color = SKETCH_COLORS.ink, fill = SKETCH_COLORS.earth.parchment, startFrame = 0, instant, seed = 1, hasSeal = false }: BoxProps & { hasSeal?: boolean }) {
+export function Scroll({ x, y, width, height, color = SKETCH_COLORS.ink, fill = SKETCH_COLORS.paper, startFrame = 0, instant, seed = 1, hasSeal = false }: BoxProps & { hasSeal?: boolean }) {
   const curl = height * 0.12;
   const points: [number, number][] = [
     [x, y + curl],

@@ -8,18 +8,19 @@ import { staticFile } from "remotion";
  * like Golpo" instead of re-tuning a dozen components that have quietly
  * drifted apart.
  *
- * Revision 3 (the design-system pass): these are the *working* target
- * values from the product owner's art-direction spec (Phase 4 Revision 3,
- * Part I) — off-white paper, near-black confident ink, one unified
- * two-temperature-group marker palette. They get sampled and locked from
- * the actual shareholder-approved curated candidate set at the
- * Workstream 1 sign-off gate; until then these are the best-known target,
- * not yet the final locked palette.
+ * Revision 4 (the "too yellowish" fix): revision 3's off-white/earth-tone
+ * palette read as warm, vintage, parchment — not a modern educator
+ * product, per direct shareholder feedback on real generated output. The
+ * "bright" (clean-register) group is unchanged; the "earth" group — the
+ * actual source of the warm cast, per candidatePrompts.ts's matching
+ * fix — is replaced with a cool-toned "deep" group, and paper/ink both
+ * shift a step cooler. Validate on a real test batch before treating this
+ * as locked (same discipline as revision 3's own sign-off gate).
  */
 
 export const SKETCH_COLORS = {
-  ink: "#1d1d1b",
-  paper: "#faf8f3",
+  ink: "#1b1e24",
+  paper: "#f6f7fa",
   panelFill: "#ffffff",
   // "Bright" group — the explanation register (diagrams, icons, clean
   // scenes). Selective, not a wash: most of the canvas stays ink-on-paper.
@@ -28,13 +29,16 @@ export const SKETCH_COLORS = {
     pink: "#f07ea8",
     orange: "#f49b4a",
   },
-  // "Earth" group — the rich/narrative register (hero tableaus).
-  earth: {
-    terracotta: "#c96f4a",
-    olive: "#8a8b4e",
-    parchment: "#e8d9b0",
-    walnut: "#7a5230",
-    stoneGray: "#b9b4a8",
+  // "Deep" group (was "earth") — the rich/narrative register (hero
+  // tableaus). Same role (flat color accents on dense full-canvas scenes),
+  // cool instead of warm: navy/teal/slate/plum/cool-gray in place of
+  // terracotta/olive/parchment/walnut/stone.
+  deep: {
+    navy: "#1f3a5f",
+    teal: "#17a2a0",
+    slateBlue: "#5b7a99",
+    plum: "#6b3b56",
+    coolGray: "#a9b2bd",
   },
   // Shared across both registers.
   signalRed: "#e03c31", // X marks, urgency arrows, seals, dropcaps — never a large fill

@@ -30,8 +30,17 @@
 // prose clauses) and subject-first fixed it. Validated with a fresh
 // small batch before spending on the full candidate run — same
 // discipline as the original vignette-defect fix.
+// Revision 4 (the "too yellowish" fix): the shareholder's read on revision
+// 3's actual generated output was that it looked warm/vintage/parchment,
+// not like a modern educator product — traced to two literal phrases in
+// this file ("off-white paper background" and the rich register's
+// "earth-tone... parchment... walnut brown" clause) that were baking a
+// warm cast into every single generation. Same short, subject-first prompt
+// discipline as before (see the comment above) — only the color words
+// change, cool instead of warm; the structure that fixed the CLIP-
+// conditioning failure stays untouched.
 export const SHARED_STYLE =
-  "whiteboard marker drawing, off-white paper background, no vignette, no gradient shading, no soft " +
+  "whiteboard marker drawing, cool white paper background, no vignette, no gradient shading, no soft " +
   "rendering, confident thick near-black ink outline, hand-drawn wobble not geometric, mostly UNCOLORED " +
   "black-and-white line art with only ONE or TWO small flat color accents (not full color, not painted, " +
   "not shaded, no gradients on the color itself — solid flat marker color only), simple cartoon face, no " +
@@ -39,11 +48,11 @@ export const SHARED_STYLE =
 
 const CLEAN_REGISTER_STYLE =
   "mostly black ink linework on plain paper, but ALWAYS include one clearly visible flat marker color area " +
-  "(blue, pink, or orange — pick one) on a meaningful part of the subject, like clothing or a highlighted " +
+  "(blue, teal, or green — pick one) on a meaningful part of the subject, like clothing or a highlighted " +
   "detail — not fully colored, not shaded, just confident ink plus that one flat color region";
 
 const RICH_REGISTER_STYLE =
-  "full-canvas scene, still mostly ink linework, flat earth-tone color accents only (terracotta, olive, parchment, walnut brown, stone gray), no shading gradients, restrained single-direction hatch lines instead of shading for depth";
+  "full-canvas scene, still mostly ink linework, flat cool-tone color accents only (navy, teal, slate blue, deep plum, cool gray), no shading gradients, restrained single-direction hatch lines instead of shading for depth";
 
 type Register = "clean" | "rich";
 
