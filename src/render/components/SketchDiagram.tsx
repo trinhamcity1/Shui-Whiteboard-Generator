@@ -54,6 +54,42 @@ const TIER_GAP = 26;
 // render showing text spilling past a tier's visible edge, and of that
 // tier's inset icon floating outside the shape entirely.
 const STACK_WIDTH = 680;
+// Revision 4 round 2: the fixed TIER_HEIGHT/TIER_GAP above left a real
+// render's 2-3 tier hierarchy using well under half the actual vertical
+// frame — a big dead zone below the stack (and, separately, a planner-
+// authored decorative arrow with no knowledge of that geometry landed
+// squarely inside the empty region, "pointing" at nothing). Fixed the same
+// way the flowchart shape already was: tier height/gap now scale to fill
+// the real available canvas height instead of a fixed per-tier constant.
+const PYRAMID_TIER_HEIGHT_MAX = 280;
+const PYRAMID_TIER_GAP_MAX = 90;
+const PYRAMID_BOTTOM_RESERVE = 260; // room below the stack for bottomBanner/characters/padding
+const PYRAMID_TITLE_BOTTOM = 100; // the title (top:25, 46px font) occupies roughly y:25-85
+// Revision 4 round 2: the topLabel banner used to sit at PYRAMID_TOP_Y-150
+// (=80), which overlapped the title's own bottom edge (~85) — "too close,"
+// a real render's own complaint. It's also given up its hexagon-notched
+// BannerRibbon shape for a plain rectangle: a real render showed a pyramid
+// where the top label was one shape and its two tiers were another —
+// the shape language has to stay consistent within one diagram.
+const PYRAMID_TOP_LABEL_GAP_ABOVE = 45; // clearance below the title before the label box starts
+const PYRAMID_TOP_LABEL_HEIGHT = 90;
+const PYRAMID_TOP_LABEL_GAP_BELOW = 40; // clearance after the label box before the tier stack starts
+
+/** A stacked "hierarchy card" tier — same width and shape for every tier,
+ * top to bottom, connected by a short downward arrow instead of a
+ * tapering trapezoid claiming a ranking via width. */
+function tierPolygon(index: number, topY: number, tierHeight: number, tierGap: number) {
+  const cx = CANVAS_WIDTH / 2;
+  const y0 = topY + index * (tierHeight + tierGap);
+  const y1 = y0 + tierHeight;
+  const points: [number, number][] = [
+    [cx - STACK_WIDTH / 2, y0],
+    [cx + STACK_WIDTH / 2, y0],
+    [cx + STACK_WIDTH / 2, y1],
+    [cx - STACK_WIDTH / 2, y1],
+  ];
+  return { points, midY: (y0 + y1) / 2, cx };
+}
 
 const FLOWCHART_BOX_WIDTH = 860;
 const FLOWCHART_BOX_HEIGHT = 130;
@@ -72,22 +108,6 @@ const COMPARISON_CANVAS_HEIGHT = 800;
 // first, then leaves its own gap before the diagram body starts.
 const TOP_LABEL_Y_NONPYRAMID = 95;
 const CONTENT_Y_OFFSET_WITH_LABEL = 55;
-
-/** A stacked "hierarchy card" tier — same width and shape for every tier,
- * top to bottom, connected by a short downward arrow instead of a
- * tapering trapezoid claiming a ranking via width. */
-function tierPolygon(index: number) {
-  const cx = CANVAS_WIDTH / 2;
-  const y0 = PYRAMID_TOP_Y + index * (TIER_HEIGHT + TIER_GAP);
-  const y1 = y0 + TIER_HEIGHT;
-  const points: [number, number][] = [
-    [cx - STACK_WIDTH / 2, y0],
-    [cx + STACK_WIDTH / 2, y0],
-    [cx + STACK_WIDTH / 2, y1],
-    [cx - STACK_WIDTH / 2, y1],
-  ];
-  return { points, midY: (y0 + y1) / 2, cx };
-}
 
 function boxPoints(cx: number, cy: number, w: number, h: number): [number, number][] {
   return [
@@ -127,9 +147,32 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   // title, so it never needed the push in the first place.
   const contentYOffset = topLabel && diagramType !== "pyramid" ? CONTENT_Y_OFFSET_WITH_LABEL : 0;
 
+  const pyramidTopLabelBoxTop = PYRAMID_TITLE_BOTTOM + PYRAMID_TOP_LABEL_GAP_ABOVE;
+  const pyramidTiersTopY = topLabel
+    ? pyramidTopLabelBoxTop + PYRAMID_TOP_LABEL_HEIGHT + PYRAMID_TOP_LABEL_GAP_BELOW
+    : PYRAMID_TOP_Y;
+  const pyramidAvailableHeight = Math.max(0, realCanvasHeight - pyramidTiersTopY - PYRAMID_BOTTOM_RESERVE);
+  const pyramidPerTier = tiers.length > 0 ? pyramidAvailableHeight / tiers.length : 0;
+  const pyramidTierHeight = Math.min(PYRAMID_TIER_HEIGHT_MAX, Math.max(TIER_HEIGHT, pyramidPerTier * 0.62));
+  const pyramidTierGap = Math.min(PYRAMID_TIER_GAP_MAX, Math.max(TIER_GAP, pyramidPerTier * 0.3));
+  const pyramidStackHeightUncentered = tiers.length * pyramidTierHeight + Math.max(0, tiers.length - 1) * pyramidTierGap;
+  // A small tier count (2-3) hits the per-tier height/gap caps above well
+  // before it uses the real available height — capping tier height is
+  // correct (an uncapped single tier could become an absurd, oversized
+  // rectangle), but left uncorrected it reopens the exact dead-zone problem
+  // the caps were added to avoid, just below the stack instead of below the
+  // whole diagram. Splitting the leftover space evenly above/below the
+  // (still modestly-sized) stack turns it into breathing room instead.
+  const pyramidLeftoverHeight = Math.max(0, pyramidAvailableHeight - pyramidStackHeightUncentered);
+  const pyramidTiersStartY = pyramidTiersTopY + pyramidLeftoverHeight / 2;
+
   const tierLayout = useMemo(
-    () => tiers.map((tier, i) => ({ tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! }, ...tierPolygon(i) })),
-    [tiers],
+    () =>
+      tiers.map((tier, i) => ({
+        tier: { ...tier, color: tier.color ?? SKETCH_COLORS.tierPalette[i % SKETCH_COLORS.tierPalette.length]! },
+        ...tierPolygon(i, pyramidTiersStartY, pyramidTierHeight, pyramidTierGap),
+      })),
+    [tiers, pyramidTiersStartY, pyramidTierHeight, pyramidTierGap],
   );
 
   // Caught on a real render: a bare flowchart (no flanking character, no
@@ -178,19 +221,40 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
     });
   }, [tiers, contentYOffset]);
 
-  const pyramidStackHeight = tiers.length * TIER_HEIGHT + Math.max(0, tiers.length - 1) * TIER_GAP;
-  const pyramidBaseY = PYRAMID_TOP_Y + pyramidStackHeight;
+  const pyramidStackHeight = pyramidStackHeightUncentered;
+  const pyramidBaseY = pyramidTiersStartY + pyramidStackHeight;
 
   const canvasHeight =
     diagramType === "flowchart"
       ? flowchartCanvasHeight
       : diagramType === "comparison"
         ? COMPARISON_CANVAS_HEIGHT + contentYOffset
-        : Math.max(PYRAMID_CANVAS_HEIGHT, pyramidBaseY + 200);
+        : Math.max(PYRAMID_CANVAS_HEIGHT, pyramidBaseY + 200, realCanvasHeight);
 
   const anchorBaseY = diagramType === "pyramid" ? pyramidBaseY : diagramType === "flowchart" ? flowchartCanvasHeight - 120 : COMPARISON_TOP_Y + contentYOffset + COMPARISON_BOX_HEIGHT;
-  const characterHeight = (diagramType === "pyramid" ? pyramidStackHeight : anchorBaseY - 150) * SKETCH_LAYOUT.characterToPyramidHeightRatio;
-  const characterTop = anchorBaseY - characterHeight;
+  // Capped at 700 for every diagram type — flowchart and pyramid both scale
+  // their own height to fill the real canvas (the dead-zone fix), which
+  // would otherwise inflate a flanking character to an enormous size on a
+  // tall vertical video. Caught on a real render: an uncapped flowchart
+  // character grew tall enough to completely cover two of its own steps'
+  // text — the diagram filling the frame doesn't mean the character beside
+  // it should too.
+  const characterHeightBasis = Math.min(diagramType === "pyramid" ? pyramidStackHeight : anchorBaseY - 150, 700);
+  const characterHeight = characterHeightBasis * SKETCH_LAYOUT.characterToPyramidHeightRatio;
+  // Same fix, the other axis: a character positioned at a fixed left:20/
+  // right:20 inset has only the margin between the canvas edge and this
+  // diagram's own box width before it starts overlapping that box — same
+  // real render showed the (also uncapped) width overlapping flowchart step
+  // boxes even where the height alone looked reasonable.
+  const diagramBoxWidth = diagramType === "pyramid" ? STACK_WIDTH : diagramType === "flowchart" ? FLOWCHART_BOX_WIDTH : COMPARISON_BOX_WIDTH * 2 + 80;
+  const characterMaxWidth = Math.max(60, (CANVAS_WIDTH - diagramBoxWidth) / 2 - 40);
+  // Pyramid centers its flanking characters against the stack's own
+  // vertical midpoint instead of anchoring to its bottom edge — since the
+  // stack can now be much taller than the (capped) character, bottom
+  // anchoring would strand the character down by the last tier with a tall
+  // empty gap above it, beside the earlier tiers.
+  const characterTop =
+    diagramType === "pyramid" ? pyramidTiersStartY + (pyramidStackHeight - characterHeight) / 2 : anchorBaseY - characterHeight;
 
   useEffect(() => {
     let cancelled = false;
@@ -278,6 +342,20 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       } else if (diagramType === "comparison") {
         comparisonBoxes.forEach(({ tier, points }, i) => drawBox(points, tier.color, 100 + i));
       } else {
+        // Revision 4 round 2: the top label is now a plain rectangle drawn
+        // the same way as the tiers below it (same drawBox call, same
+        // width) instead of the hexagon-notched BannerRibbon — a real
+        // render showed a pyramid where the label was one shape and its
+        // tiers were another, breaking the "everything here is a rectangle"
+        // shape language the rest of the diagram commits to.
+        if (topLabel) {
+          const labelPoints = boxPoints(CANVAS_WIDTH / 2, pyramidTopLabelBoxTop + PYRAMID_TOP_LABEL_HEIGHT / 2, STACK_WIDTH, PYRAMID_TOP_LABEL_HEIGHT);
+          drawBox(labelPoints, SKETCH_COLORS.panelFill, 40);
+          if (tierLayout.length > 0) {
+            const first = tierLayout[0]!;
+            drawArrow(CANVAS_WIDTH / 2, pyramidTopLabelBoxTop + PYRAMID_TOP_LABEL_HEIGHT, first.cx, first.points[0]![1], 480);
+          }
+        }
         // Revision 4: each tier card connects to the next with a short
         // straight down-arrow instead of the old design's single diagonal
         // arrow off to a flanking character — that arrow was a fixed pixel
@@ -291,6 +369,15 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
             drawArrow(tx, points[2]![1], next.cx, next.points[0]![1], 500 + i);
           }
         });
+        // Same rectangle-consistency fix as the top label above — the
+        // footer banner was still the hexagon-notched BannerRibbon, which
+        // would have left the diagram with a rectangle top+tiers but a
+        // hexagon bottom, the exact inconsistency the design-system rule
+        // (Revision 4) now calls out explicitly.
+        if (bottomBanner) {
+          const bannerPoints = boxPoints(CANVAS_WIDTH / 2, anchorBaseY + 65, 640, 70);
+          drawBox(bannerPoints, SKETCH_COLORS.panelFill, 700);
+        }
       }
 
       continueRender(handle);
@@ -328,16 +415,14 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           the imperative canvas above, so it paints on top the same way
           the old inline drawBox(ribbonPoints(...)) calls did. */}
       <svg width={CANVAS_WIDTH} height={canvasHeight} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
-        {topLabel && (
-          <BannerRibbon
-            x={CANVAS_WIDTH / 2 - 150}
-            y={diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : TOP_LABEL_Y_NONPYRAMID}
-            width={300}
-            height={100}
-            instant
-          />
-        )}
-        {bottomBanner && <BannerRibbon x={CANVAS_WIDTH / 2 - 320} y={anchorBaseY + 30} width={640} height={70} instant />}
+        {/* Pyramid's topLabel is drawn as a plain rectangle in the
+            imperative rough.js pass above (matching the tiers' own shape),
+            not this ribbon — see the round-2 comment there. */}
+        {topLabel && diagramType !== "pyramid" && <BannerRibbon x={CANVAS_WIDTH / 2 - 150} y={TOP_LABEL_Y_NONPYRAMID} width={300} height={100} instant />}
+        {/* Pyramid's bottomBanner is drawn as a plain rectangle in the
+            imperative rough.js pass above, same rectangle-consistency fix
+            as topLabel. */}
+        {bottomBanner && diagramType !== "pyramid" && <BannerRibbon x={CANVAS_WIDTH / 2 - 320} y={anchorBaseY + 30} width={640} height={70} instant />}
         {diagramType === "comparison" && comparisonBoxes.length === 2 && (
           <BannerRibbon
             x={CANVAS_WIDTH / 2 - 60}
@@ -349,12 +434,32 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         )}
       </svg>
 
-      {topLabel && (
+      {topLabel && diagramType === "pyramid" && (
+        <div
+          style={{
+            position: "absolute",
+            left: CANVAS_WIDTH / 2 - STACK_WIDTH / 2,
+            top: pyramidTopLabelBoxTop,
+            width: STACK_WIDTH,
+            height: PYRAMID_TOP_LABEL_HEIGHT,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: SKETCH_FONT_FAMILY,
+            fontSize: 26,
+            textAlign: "center",
+            color: SKETCH_COLORS.ink,
+          }}
+        >
+          {topLabel}
+        </div>
+      )}
+      {topLabel && diagramType !== "pyramid" && (
         <div
           style={{
             position: "absolute",
             left: CANVAS_WIDTH / 2 - 150,
-            top: (diagramType === "pyramid" ? PYRAMID_TOP_Y - 150 : TOP_LABEL_Y_NONPYRAMID) + 10,
+            top: TOP_LABEL_Y_NONPYRAMID + 10,
             width: 300,
             height: 80,
             display: "flex",
@@ -487,15 +592,23 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
       )}
 
       {leftCharacterSrc && (
+        // Revision 4 round 2 fix: a diagram filling a tall vertical frame
+        // (the dead-zone fix above) computes a tall characterHeight, but
+        // scaling a flanking character by height alone let a normally-
+        // proportioned character grow WIDER than its actual side margin
+        // and overlap the diagram's own boxes/text — a real regression
+        // from that same fix, caught on a real render for both pyramid and
+        // flowchart. maxWidth caps it on that axis too, same "fit within
+        // both bounds" resolution already used for HeroBackdropTemplate.
         <Img
           src={leftCharacterSrc}
-          style={{ position: "absolute", left: 20, top: characterTop, height: characterHeight, width: "auto" }}
+          style={{ position: "absolute", left: 20, top: characterTop, maxHeight: characterHeight, maxWidth: characterMaxWidth, width: "auto", height: "auto" }}
         />
       )}
       {rightCharacterSrc && diagramType === "pyramid" && (
         <Img
           src={rightCharacterSrc}
-          style={{ position: "absolute", right: 20, top: characterTop, height: characterHeight, width: "auto" }}
+          style={{ position: "absolute", right: 20, top: characterTop, maxHeight: characterHeight, maxWidth: characterMaxWidth, width: "auto", height: "auto" }}
         />
       )}
     </AbsoluteFill>

@@ -584,6 +584,15 @@ const ZONE_IMG_HEIGHT = 380;
 export function Narrative3ZoneTemplate({ title, slots }: CompositionTemplateProps) {
   const { width: canvasWidth } = useVideoConfig();
   const zones = ["zone1", "zone2", "zone3"].map((key) => slots[key]).filter(Boolean) as CompositionSlot[];
+  // Revision 4 round 2: these arrows used to be `instant` — always fully
+  // visible from frame 0 — while the zone they point AT only fades in at
+  // its own revealAtSeconds (via SlotReveal below). A real render showed
+  // exactly that: the down-arrow to zone2/zone3 already drawn while the
+  // zone itself hadn't appeared yet. Gating each arrow's startFrame to the
+  // zone it points to (same fix StoryboardArrow already applies in
+  // Storyboard4PanelTemplate) makes it appear together with its target.
+  const zone2OffsetFrames = useSlotOffsetFrames(zones[1]);
+  const zone3OffsetFrames = useSlotOffsetFrames(zones[2]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: SKETCH_COLORS.paper }}>
@@ -592,10 +601,10 @@ export function Narrative3ZoneTemplate({ title, slots }: CompositionTemplateProp
 
       <svg width={canvasWidth} height={1920} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
         {zones.length > 1 && (
-          <Arrow from={{ x: canvasWidth / 2, y: ZONE_TOP[0]! + ZONE_IMG_HEIGHT + 60 }} to={{ x: canvasWidth / 2, y: ZONE_TOP[1]! - 20 }} color={SKETCH_COLORS.accentArrow} variant="straight" instant />
+          <Arrow from={{ x: canvasWidth / 2, y: ZONE_TOP[0]! + ZONE_IMG_HEIGHT + 60 }} to={{ x: canvasWidth / 2, y: ZONE_TOP[1]! - 20 }} color={SKETCH_COLORS.accentArrow} variant="straight" startFrame={zone2OffsetFrames} />
         )}
         {zones.length > 2 && (
-          <Arrow from={{ x: canvasWidth / 2, y: ZONE_TOP[1]! + ZONE_IMG_HEIGHT + 60 }} to={{ x: canvasWidth / 2, y: ZONE_TOP[2]! - 20 }} color={SKETCH_COLORS.accentArrow} variant="straight" instant />
+          <Arrow from={{ x: canvasWidth / 2, y: ZONE_TOP[1]! + ZONE_IMG_HEIGHT + 60 }} to={{ x: canvasWidth / 2, y: ZONE_TOP[2]! - 20 }} color={SKETCH_COLORS.accentArrow} variant="straight" startFrame={zone3OffsetFrames} />
         )}
       </svg>
 

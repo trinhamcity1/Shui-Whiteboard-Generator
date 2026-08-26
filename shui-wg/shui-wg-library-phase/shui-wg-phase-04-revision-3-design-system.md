@@ -448,3 +448,96 @@ significant compositing effort — revisit only if the checkpoint review says th
 feel is still lacking without it); any public-facing surface (still Phase 5); music
 beds beyond the existing `backgroundTrack` support; retraining the style model again
 after WS1 absent a checkpoint-identified defect.
+
+---
+
+## Revision 4 — hard rules from real-render defects (the permanent style book)
+
+This section exists because the shareholder explicitly asked that defects found on
+real generated video be written down as standing rules applied to every future render
+and every future model retrain, not just patched on the one video that showed them.
+Everything below was found on an actual rendered video, root-caused in the actual
+code, and fixed there — this section is the durable record of the rule, kept
+separate from the fix's own code comment so it survives refactors. Add to this list;
+never quietly let a fixed defect's lesson disappear.
+
+### Palette
+
+- **The palette is cool, not warm.** Revision 3's palette read as "warm painterly
+  storybook" — soft, yellow-warm, cozy — the opposite of an educator-grade product.
+  Locked values: `ink #1b1e24`, `paper #f6f7fa`, the rich-register "deep" group is
+  navy/teal/slate-blue/plum/cool-gray (never terracotta/olive/parchment/walnut/stone).
+  The "bright" clean-register group (blue/pink/orange) is unaffected and stays as-is.
+- **A palette fix is not one file.** The literal warm/off-white wording lived in at
+  least four independent places: `candidatePrompts.ts` (LoRA training + candidate
+  generation), `libraryPrompt.ts` (the asset-library generator — has its OWN
+  background-color suffix, appended after `SHARED_STYLE`, that can silently override
+  a fix made only in `SHARED_STYLE`), `trainedStyle.ts` (the live one-off/fallback
+  generator for anything not already in the library — a genuinely separate code path
+  from the library generator, easy to forget entirely), and `quarantine.ts` (the
+  AI quality gate's own system prompt, which can be actively instructing the reviewer
+  to APPROVE the very defect you just fixed elsewhere). Any future palette change
+  must `grep` across all four, not edit one and assume the rest follow.
+
+### Diagram shape consistency
+
+- **Every shape in one diagram must share the same shape family.** A pyramid whose
+  top label is a hexagon-notched ribbon and whose tiers are rectangles reads as
+  inconsistent, not layered — real shareholder feedback on a real render. If the
+  content is a stack of rectangular tiers, its header/label is a rectangle too.
+- **No fixed-width text/inset positioning against a tapering shape.** The pyramid's
+  original trapezoid tapered per tier while labels and inset icons were positioned
+  using the bottom tier's width — every tier but the bottom overflowed. A ranked
+  hierarchy can be conveyed by stacking order and connecting arrows alone; it does
+  not require a shape whose width itself claims the ranking.
+
+### Fill the frame — no dead zones, ever
+
+- **Any diagram/composition whose vertical footprint is computed from fixed
+  per-element constants (box height, gap, stack height) MUST instead scale those
+  constants to the actual rendered canvas height**, the same pattern already applied
+  to the flowchart shape and now the pyramid stack: compute available height from
+  `useVideoConfig()`, divide by element count, then clamp the result between a
+  sensible minimum and maximum. A 2-3 tier diagram sized by fixed constants alone
+  will use under half of a 1920px-tall vertical frame, no matter how many times this
+  gets "fixed" on one video — it has to be fixed at the sizing formula, not the tier
+  count.
+- **A flanking character's size must be derived from — but capped independent of —
+  its diagram's height.** Scaling a diagram to fill the frame must not proportionally
+  inflate a character standing beside it to an absurd size; cap the character's own
+  height basis separately, and center it against the (possibly much taller) diagram's
+  midpoint rather than anchoring it to one edge.
+- **Give every element real breathing room from its neighbors**, especially a title
+  and the first content box directly below it — measure the title's own font-size
+  footprint and leave clearance, don't reuse a fixed offset that happened to clear an
+  earlier, differently-shaped title device.
+
+### Arrows and connectors must be grounded in what's actually on screen
+
+- **A connector arrow may never reveal before both of the things it connects are
+  themselves visible.** Any arrow tied to a composition slot's reveal timing (e.g.
+  `revealAtSeconds`) must gate its own appearance to that same timing — never render
+  it `instant`/frame-0 just because it was easy to. This was found twice
+  independently (Storyboard4PanelTemplate's grid arrows, already fixed; then
+  Narrative3ZoneTemplate's zone-to-zone arrows, found and fixed in this revision) —
+  treat every future connector-bearing template as guilty until its reveal timing is
+  checked against its endpoints' own reveal timing.
+- **A decoration's coordinates are a guess the author (the planning LLM) cannot
+  verify** — it knows a scene's rough intent, never its exact rendered geometry. A
+  real render showed a planner-authored decorative arrow (`y:700` to `y:1100`) landing
+  in empty canvas below a pyramid that only used its top few hundred pixels — an arrow
+  pointing at nothing. Two standing rules: (1) `sketchDiagram` actions may never carry
+  a connector-kind decoration — the diagram already draws its own connecting arrows
+  between tiers/steps using coordinates the decoration system has no way to predict;
+  this is enforced in code (`stripUngroundedSketchDiagramConnectors` in
+  `planning.ts`), not just prompted against, because the prompt alone did not hold.
+  (2) On any other action, a connector decoration must only ever point between two
+  elements the author is highly confident both land in known, fixed screen regions —
+  when in doubt, the correct move is to omit the decoration, not guess its endpoints.
+
+### Applying this section
+
+Before closing out any future visual-defect report: (1) fix the specific render, (2)
+find and fix the general code path that produced it (not just the symptom), (3) add
+the general rule to this section so a retrain or a new template inherits it
+automatically instead of relying on someone remembering this specific incident.

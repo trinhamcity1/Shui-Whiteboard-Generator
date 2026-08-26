@@ -78,6 +78,26 @@ function collectReferencedAssetIds(actions: SceneActionT[]): string[] {
   return ids;
 }
 
+const CONNECTOR_DECORATION_KINDS = new Set(["arrowCurved", "arrowStraight", "arrowJagged", "arrowDashed"]);
+
+/** Belt-and-suspenders backstop for the prompt's own instruction below: a
+ * sketchDiagram already draws its own connecting arrows between tiers/steps
+ * as part of the diagram itself, using exact box coordinates this
+ * function's caller has no way to predict. A real render showed the model
+ * ignore that instruction and add a decorative connector arrow anyway,
+ * landing in whatever empty canvas the diagram didn't use — pointing at
+ * nothing. Rather than trust prompt compliance alone, any connector-kind
+ * decoration on a sketchDiagram action is dropped here regardless of what
+ * the model returned. */
+function stripUngroundedSketchDiagramConnectors(actions: SceneActionT[]): SceneActionT[] {
+  return actions.map((action) => {
+    if (action.type !== "sketchDiagram" || !action.decorations?.length) return action;
+    const filtered = action.decorations.filter((d) => !CONNECTOR_DECORATION_KINDS.has(d.kind));
+    if (filtered.length === action.decorations.length) return action;
+    return { ...action, decorations: filtered };
+  });
+}
+
 // One line per manifest entry — enough for the planner to pick a sensible
 // assetId without needing to see the actual generated image.
 function buildAssetCatalog(): string {
@@ -236,6 +256,17 @@ Rules:
   keep it to 3-6 decorations per scene, never a wall of doodles. A decoration with no clear communicative
   purpose (arrows must guide reading order; xMark only for negation; sparkles are rare accents, not filler)
   should not be added at all.
+  CRITICAL for any connector ("arrowCurved"/"arrowStraight"/"arrowJagged"/"arrowDashed"): you do not know
+  this scene's exact rendered layout, only its rough intent — a coordinate you invent has a real chance of
+  landing in empty canvas next to nothing. A real render showed exactly this failure: a decorative arrow
+  placed from y:700 to y:1100 on a scene whose actual content occupied only the top few hundred pixels,
+  reading as an arrow pointing at nothing in a sea of blank paper. Two rules fix this: (1) NEVER add a
+  connector decoration to a "sketchDiagram" action — it already draws its own connecting arrows between
+  tiers/steps as part of the diagram itself, and a second, independently-coordinated arrow on top of it
+  cannot know where those tiers actually are. (2) On any other action, only add a connector between two
+  elements you are highly confident both occupy known screen regions (e.g., a caption's fixed bottom band, a
+  composition slot's documented fixed box) — when in doubt, leave the connector out entirely rather than
+  guess coordinates.
 - Use "fullBleedGraphic" for a strong establishing or closing visual when the script describes something
   concrete and drawable — an object, a place, a process. "fullBleedGraphic" also takes an optional
   "attribution" (a short caption burned over the image, e.g. "THE CONSTITUTION") — set it whenever a label
@@ -392,7 +423,7 @@ export async function planScenesFromScript(
         const costUsd =
           (totalInputTokens / 1_000_000) * INPUT_COST_PER_MTOK_USD +
           (totalOutputTokens / 1_000_000) * OUTPUT_COST_PER_MTOK_USD;
-        return { actions: result.data, tokensUsed, costUsd };
+        return { actions: stripUngroundedSketchDiagramConnectors(result.data), tokensUsed, costUsd };
       }
 
       if (attempt === 0) {
