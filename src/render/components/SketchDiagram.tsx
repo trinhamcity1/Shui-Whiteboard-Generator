@@ -53,7 +53,12 @@ const TIER_GAP = 26;
 // tier's true trapezoid width). That mismatch was the root cause of a real
 // render showing text spilling past a tier's visible edge, and of that
 // tier's inset icon floating outside the shape entirely.
-const STACK_WIDTH = 680;
+// Narrowed from 680 — a real render showed the flanking characters at
+// 680's resulting margin (120px max width) too small to read as anything
+// but a generic silhouette ("why is the guy on the right just... a guy" —
+// the officer's badge/uniform detail wasn't legible). A narrower stack
+// frees up real margin for a character that actually reads as a character.
+const STACK_WIDTH = 600;
 // Revision 4 round 2: the fixed TIER_HEIGHT/TIER_GAP above left a real
 // render's 2-3 tier hierarchy using well under half the actual vertical
 // frame — a big dead zone below the stack (and, separately, a planner-
@@ -247,7 +252,7 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
   // real render showed the (also uncapped) width overlapping flowchart step
   // boxes even where the height alone looked reasonable.
   const diagramBoxWidth = diagramType === "pyramid" ? STACK_WIDTH : diagramType === "flowchart" ? FLOWCHART_BOX_WIDTH : COMPARISON_BOX_WIDTH * 2 + 80;
-  const characterMaxWidth = Math.max(60, (CANVAS_WIDTH - diagramBoxWidth) / 2 - 40);
+  const characterMaxWidth = Math.max(60, (CANVAS_WIDTH - diagramBoxWidth) / 2 - 20);
   // Pyramid centers its flanking characters against the stack's own
   // vertical midpoint instead of anchoring to its bottom edge — since the
   // stack can now be much taller than the (capped) character, bottom
@@ -415,14 +420,36 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
           the imperative canvas above, so it paints on top the same way
           the old inline drawBox(ribbonPoints(...)) calls did. */}
       <svg width={CANVAS_WIDTH} height={canvasHeight} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}>
-        {/* Pyramid's topLabel is drawn as a plain rectangle in the
-            imperative rough.js pass above (matching the tiers' own shape),
-            not this ribbon — see the round-2 comment there. */}
-        {topLabel && diagramType !== "pyramid" && <BannerRibbon x={CANVAS_WIDTH / 2 - 150} y={TOP_LABEL_Y_NONPYRAMID} width={300} height={100} instant />}
-        {/* Pyramid's bottomBanner is drawn as a plain rectangle in the
-            imperative rough.js pass above, same rectangle-consistency fix
-            as topLabel. */}
-        {bottomBanner && diagramType !== "pyramid" && <BannerRibbon x={CANVAS_WIDTH / 2 - 320} y={anchorBaseY + 30} width={640} height={70} instant />}
+        {/* Pyramid's topLabel/bottomBanner are drawn as plain rectangles in
+            the imperative rough.js pass above (matching the tiers' own
+            shape) — see the round-2 comment there. Flowchart/comparison get
+            the same rectangle-consistency treatment here, matching their
+            own box width instead of the hexagon-notched BannerRibbon: a
+            real render showed a comparison diagram's topLabel ("Divided
+            Power") as a hexagon sitting directly above two rectangle boxes,
+            the exact inconsistency this rule exists to prevent. */}
+        {topLabel && diagramType !== "pyramid" && (
+          <rect
+            x={CANVAS_WIDTH / 2 - diagramBoxWidth / 2}
+            y={TOP_LABEL_Y_NONPYRAMID}
+            width={diagramBoxWidth}
+            height={100}
+            fill={SKETCH_COLORS.panelFill}
+            stroke={SKETCH_COLORS.ink}
+            strokeWidth={SKETCH_LINE.strokeWidthThick}
+          />
+        )}
+        {bottomBanner && diagramType !== "pyramid" && (
+          <rect
+            x={CANVAS_WIDTH / 2 - diagramBoxWidth / 2}
+            y={anchorBaseY + 30}
+            width={diagramBoxWidth}
+            height={70}
+            fill={SKETCH_COLORS.panelFill}
+            stroke={SKETCH_COLORS.ink}
+            strokeWidth={SKETCH_LINE.strokeWidthThick}
+          />
+        )}
         {diagramType === "comparison" && comparisonBoxes.length === 2 && (
           <BannerRibbon
             x={CANVAS_WIDTH / 2 - 60}
@@ -458,9 +485,9 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
         <div
           style={{
             position: "absolute",
-            left: CANVAS_WIDTH / 2 - 150,
+            left: CANVAS_WIDTH / 2 - diagramBoxWidth / 2,
             top: TOP_LABEL_Y_NONPYRAMID + 10,
-            width: 300,
+            width: diagramBoxWidth,
             height: 80,
             display: "flex",
             alignItems: "center",
@@ -539,7 +566,12 @@ export const SketchDiagram: React.FC<SketchDiagramProps> = ({
 
       {diagramType === "pyramid" &&
         tierLayout.map(({ tier, midY }) => {
-          const insetSize = TIER_HEIGHT * 0.7;
+          // Was TIER_HEIGHT * 0.7 — a leftover from before tier height went
+          // dynamic (the dead-zone fix). A real render showed a tall,
+          // scaled-up tier box paired with a small, disproportionate inset
+          // icon still sized off the old fixed constant. pyramidTierHeight
+          // is the box's actual rendered height now, for every tier alike.
+          const insetSize = pyramidTierHeight * 0.7;
           return (
             <React.Fragment key={tier.label}>
               <div

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { GeneratedImage, ImageProvider } from "./types";
-import { TrainedStyleImageProvider } from "./trainedStyle";
+import { TrainedStyleImageProvider, TRAINED_STYLE_PROMPT_VERSION } from "./trainedStyle";
 import { uploadBufferToR2, getPresignedUrlForKey } from "../storage/r2";
 import {
   getImageCacheEntry,
@@ -20,9 +20,14 @@ export function cacheKeyFor(provider: string, styleVariant: string, concept: str
  * model alike) — cacheKeyFor alone would let two different models
  * collide on the same concept text. Folding in the trigger word (unique
  * per model, since echoPipeline.ts mints one per Echo model) keeps their
- * cache entries — and therefore their images — from ever mixing. */
+ * cache entries — and therefore their images — from ever mixing. Also
+ * folds in TRAINED_STYLE_PROMPT_VERSION, so editing the prompt wording
+ * around the concept (not the model itself) invalidates old cache entries
+ * too — see that constant's own comment for the real render this fixed. */
 export function cacheProviderDiscriminator(provider: ImageProvider): string {
-  return provider instanceof TrainedStyleImageProvider ? `${provider.name}:${provider.styleModel.triggerWord}` : provider.name;
+  return provider instanceof TrainedStyleImageProvider
+    ? `${provider.name}:${provider.styleModel.triggerWord}:${TRAINED_STYLE_PROMPT_VERSION}`
+    : provider.name;
 }
 
 function extensionFor(contentType: string): string {

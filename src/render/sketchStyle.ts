@@ -24,9 +24,15 @@ export const SKETCH_COLORS = {
   panelFill: "#ffffff",
   // "Bright" group — the explanation register (diagrams, icons, clean
   // scenes). Selective, not a wash: most of the canvas stays ink-on-paper.
+  // Revision 4 round 3: "pink" (#f07ea8) is gone — real shareholder
+  // feedback questioned it directly ("why pink? does this match the
+  // palette?") as reading playful/off-brand next to an educator-grade
+  // civics product, not a color anyone had actually asked for. Replaced
+  // with a cool violet that still gives a tier diagram three visually
+  // distinct hues without introducing a tone nobody chose on purpose.
   bright: {
     blue: "#54b8e5",
-    pink: "#f07ea8",
+    violet: "#7c6fd6",
     orange: "#f49b4a",
   },
   // "Deep" group (was "earth") — the rich/narrative register (hero
@@ -44,9 +50,9 @@ export const SKETCH_COLORS = {
   signalRed: "#e03c31", // X marks, urgency arrows, seals, dropcaps — never a large fill
   leafGreen: "#7cb65c", // ground tufts, bushes
   // Named so a pyramid/tier diagram always reads the same three colors in
-  // the same order, the way "Federal blue / State pink / Local orange"
+  // the same order, the way "Federal blue / State [accent] / Local orange"
   // does in the Golpo reference. Drawn from the bright group.
-  tierPalette: ["#54b8e5", "#f07ea8", "#f49b4a"],
+  tierPalette: ["#54b8e5", "#7c6fd6", "#f49b4a"],
   // Kept for any caller still on the pre-revision-3 name — same red family
   // as signalRed, used for connective arrows specifically.
   accentArrow: "#e03c31",

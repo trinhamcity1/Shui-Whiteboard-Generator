@@ -8,6 +8,39 @@ import type { StyleModelVersion } from "./styleModel/types";
 
 const COST_PER_IMAGE_USD = 0.03;
 
+// Bump this any time the prompt TEXT in generateOnce() below changes — the
+// image cache (src/images/cache.ts) keys on provider+styleVariant+concept,
+// which says nothing about what prompt wording actually produced the
+// cached image. A real render kept showing a warm-toned map backdrop even
+// after the "warm painterly" wording here was fixed to "cool-toned",
+// because that concept's OLD (warm) generation was already cached under an
+// identical key — the fix only ever applied to concepts nobody had asked
+// for yet. Folding this version into the cache's provider discriminator
+// (cacheProviderDiscriminator in cache.ts) makes a prompt-wording change
+// invalidate every previously-cached image instead of silently coexisting
+// with them forever.
+export const TRAINED_STYLE_PROMPT_VERSION = "v5-scene-color-grade-2026-08-26";
+
+// Belt-and-suspenders backstop for the planner prompt's own instruction
+// (planning.ts) not to describe warm light/color in an imageConcept: a real
+// render's map backdrop stayed yellow-toned even AFTER the wrapper prompt
+// below was fixed to "cool-toned," because the concept text ITSELF said
+// "glowing with one uniform golden light" — warm language in the actual
+// subject description overpowered the surrounding style instruction. Rather
+// than trust prompt compliance alone (the same lesson as
+// stripUngroundedSketchDiagramConnectors in planning.ts), strip the most
+// common warm-color words out of any concept before it reaches the model.
+const WARM_GLOW_PATTERN = /\bwarm\s+(glow|light|lighting)\b/gi;
+const WARM_COLOR_WORD_PATTERN = /\b(golden|gold-colored|gold|amber|honey-colored|honey-toned|warm[- ]toned|sunset|sunrise|yellowish|yellow-toned|yellow|orange-toned|sepia)\b/gi;
+
+function sanitizeConceptForCoolPalette(concept: string): string {
+  return concept
+    .replace(WARM_GLOW_PATTERN, "cool $1")
+    .replace(WARM_COLOR_WORD_PATTERN, "cool-toned")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * Revision-2 Layer 2's actual fix: a live one-off generation (the
  * imageConcept fallback, for anything not already in the asset library)
@@ -48,8 +81,9 @@ export class TrainedStyleImageProvider implements ImageProvider {
     return retry;
   }
 
-  private async generateOnce(concept: string, backgroundMode: "cutout" | "scene"): Promise<RawGeneratedImage> {
+  private async generateOnce(rawConcept: string, backgroundMode: "cutout" | "scene"): Promise<RawGeneratedImage> {
     fal.config({ credentials: this.apiKey });
+    const concept = sanitizeConceptForCoolPalette(rawConcept);
 
     // Caught on a real render batch: every "scene" concept (a ship on the
     // ocean, a forest, a palace interior) was still being told to render
@@ -66,12 +100,23 @@ export class TrainedStyleImageProvider implements ImageProvider {
     // the trained LoRA's baked-in style), so it kept generating warm output
     // straight through the whole regeneration. Root cause of a real render's
     // yellow-toned US-map backdrop surviving the "fixed" library.
+    // Round 3: even after the wording fix above, cool-instructed wrapper +
+    // cool-instructed concept text, a real map-of-the-USA scene STILL came
+    // back warm/sepia — "storybook illustration" for a full-frame scene
+    // strongly co-occurs with antique/parchment-map imagery in whatever
+    // this base model learned from, and that visual prior outweighed the
+    // color words alone. Scene mode now explicitly names and forbids that
+    // specific look (antique/vintage/parchment/aged-paper/atlas) rather
+    // than only asking for cool colors and hoping that's enough — a
+    // stronger, more specific negative did what a generic one didn't.
     const prompt =
       backgroundMode === "scene"
-        ? `${this.styleModel.triggerWord}, cool-toned painterly storybook illustration, ${concept}, ` +
+        ? `${this.styleModel.triggerWord}, cool-toned modern illustrated scene, ${concept}, ` +
           "a fully rendered illustrated environment filling the entire frame, no flat color background, " +
-          "no vignette, no border, no text, no lettering, no warm/yellow/orange/sepia color cast — " +
-          "cool and neutral tones only (blues, teals, cool grays, muted greens)"
+          "no vignette, no border, no text, no lettering, no warm/yellow/orange/sepia/tan color cast, " +
+          "NOT an antique or vintage map, NOT a parchment or aged-paper texture, NOT an old atlas style — " +
+          "cool and neutral tones only (blues, teals, cool grays, muted greens), clean modern educational " +
+          "illustration style"
         : `${this.styleModel.triggerWord}, cool-toned painterly storybook illustration, ${concept}, ` +
           "FLAT SOLID UNIFORM cool white background color only, no vignette, no glow, no gradient, " +
           "no atmospheric lighting effect, no shading or wash behind the subject, no text, no lettering, " +
@@ -103,7 +148,23 @@ export class TrainedStyleImageProvider implements ImageProvider {
       // its way out; normalize here the same way instead of trusting
       // whatever fal.ai actually sent.
       const sharp = (await import("sharp")).default;
-      const pngBuffer = await sharp(rawBuffer).png().toBuffer();
+      // Round 3's deterministic backstop: four straight rounds of prompt-
+      // only fixes (wrapper wording, concept-text sanitizing, an explicit
+      // planner instruction, then an explicit anti-antique-map negation)
+      // all failed to stop a "map of the USA" scene from rendering
+      // warm/sepia — this base model's visual prior for that specific
+      // subject is strong enough that text conditioning alone doesn't
+      // reliably override it. Rather than attempt a fifth prompt tweak,
+      // every scene-mode image now gets a fixed corrective color grade
+      // applied unconditionally (not detection-gated — simpler, and a
+      // genuinely cool-toned generation is only mildly, harmlessly nudged
+      // further in the same direction). Values tuned against a real warm
+      // failure case: enough to read as clearly cool instead of sepia,
+      // not so much that it looks like an artificial color-cast filter.
+      const pngBuffer = await sharp(rawBuffer)
+        .linear([0.72, 0.85, 1.15], [0, 0, 35])
+        .png()
+        .toBuffer();
       const metadata = await sharp(pngBuffer).metadata();
       return {
         imageBuffer: pngBuffer,

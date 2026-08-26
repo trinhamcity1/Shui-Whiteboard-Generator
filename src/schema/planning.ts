@@ -296,6 +296,12 @@ Rules:
   ONLY when an existing library asset is a genuinely good match for this exact moment — never force a loose
   asset match just to avoid a live-generation cost; a purpose-built imageConcept that actually matches the
   narration beats a reused asset that only sort of fits.
+- NEVER describe lighting, glow, or color in warm terms (golden/amber/yellow/orange light, a "warm glow",
+  sunset tones, etc.) in an imageConcept — this product's palette is deliberately cool (blues, teals, cool
+  grays), a direct shareholder correction after real renders kept coming back yellow-toned specifically
+  BECAUSE the concept text itself asked for warm light, overriding the illustration style's own cool-palette
+  instruction. If a concept needs a light/glow effect at all, describe it as cool-white, pale blue, or simply
+  "a soft glow" with no color named — never gold, amber, or yellow.
 - CHARACTER OUTFIT AND SETTING MUST MATCH THE SCRIPT'S ERA. The asset library below is built entirely
   around modern civics content — a narrator in a modern collared shirt, judges in modern black robes,
   police officers in modern uniforms. That library is a WRONG match for anything set in a different time,

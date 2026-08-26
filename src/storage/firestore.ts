@@ -333,6 +333,14 @@ export interface LibraryAssetRecord {
   labelAnchor?: { xFraction: number; yFraction: number };
   anchors?: Array<{ xFraction: number; yFraction: number; kind: "label" | "inset" | "attachment" }>;
   dominantColor?: string;
+  // Stamped from TRAINED_STYLE_PROMPT_VERSION (src/images/trainedStyle.ts)
+  // at generation time. A real render kept reusing a stale, warm-toned
+  // "USA map" asset via semantic match long after the prompt that generated
+  // it had been fixed, because reuse eligibility never checked what prompt
+  // version actually produced the asset — this field lets it. Absent on
+  // any asset generated before this field existed, which is deliberately
+  // treated as a version mismatch (see resolveConceptViaLibrary).
+  promptVersion?: string;
 }
 
 export async function getLibraryAsset(id: string): Promise<LibraryAssetRecord | null> {

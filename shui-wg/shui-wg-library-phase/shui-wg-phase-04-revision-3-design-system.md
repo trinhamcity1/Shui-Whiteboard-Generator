@@ -535,9 +535,98 @@ never quietly let a fixed defect's lesson disappear.
   elements the author is highly confident both land in known, fixed screen regions —
   when in doubt, the correct move is to omit the decoration, not guess its endpoints.
 
+### A prompt fix does nothing if the cache still serves the old image
+
+This is the single most important lesson of this revision, found only because a
+"fixed" warm-toned map backdrop kept reappearing on a real render AFTER the warm
+wording had already been corrected in code. Root cause: `src/images/cache.ts`'s
+image cache keys on `provider:styleVariant:concept` — nothing about the actual prompt
+TEXT that produced the cached image. Editing `trainedStyle.ts`'s prompt wording
+changes what a NEW concept generates; it does nothing at all for a concept that was
+already cached under the old wording — that cache entry is permanent until something
+changes its key. The fix: `trainedStyle.ts` exports `TRAINED_STYLE_PROMPT_VERSION`,
+folded into `cacheProviderDiscriminator` in `cache.ts` — bump that version string any
+time the prompt text in `trainedStyle.ts` changes, and every previously-cached image
+under the old wording is automatically orphaned (never returned again) instead of
+requiring a manual purge. **Standing rule: any edit to a live-generation prompt
+template (not just this one) needs an accompanying cache-key version bump in the same
+commit — treat a prompt-text change without one as incomplete, not done.**
+
+A related, NOT YET FIXED gap for production awareness: `autoExpand.ts`'s "Layer 2"
+self-expanding library flow (`resolveConceptViaLibrary`) can reuse an existing shared
+library asset via semantic match instead of generating fresh — and that reuse check
+has no concept of prompt version at all. In a real deployment with a populated shared
+registry, an old asset generated under a stale prompt could keep getting matched and
+reused indefinitely regardless of any later prompt fix. This didn't surface in local
+testing (no reachable Firestore in this environment, so every concept generates
+fresh), but it is a real risk in production and should be closed before relying on
+this flow at scale — likely by stamping a promptVersion on each library asset record
+and excluding a mismatched one from reuse eligibility.
+
+### Round 3 fixes (same discipline: dynamic sizing has to touch every dependent value)
+
+- **A dynamic-fill change has to update every value derived from the old fixed
+  constant, not just the one that prompted the change.** The pyramid's tier boxes
+  were made to scale with real canvas height (this doc's fill-the-frame rule), but
+  the tier's inset icon size was left computed from the OLD fixed `TIER_HEIGHT`
+  constant — a real render showed a much-larger scaled-up tier box paired with a
+  small, disproportionate icon still sized for the box's old, smaller self. When a
+  layout value goes dynamic, grep for every other place still reading its retired
+  fixed constant.
+- **A flanking character sized to avoid overlap can be sized so small it stops
+  reading as anything.** The first overlap fix (cap width to the diagram's own
+  margin) was correct in direction but too tight in practice — real feedback was
+  "why does the guy on the right just look like... a guy" (the officer's
+  distinguishing detail wasn't legible at that size). Fixed by narrowing the
+  pyramid's own stack width to free up real margin, not just capping harder;
+  overlap-avoidance and legibility are both real constraints on the same box, and
+  a fix for one has to leave enough room for the other.
+- **Every accent color needs a reason someone can state.** Real shareholder
+  feedback questioned "pink" in the tier palette directly — not warm/cool this
+  time, just "why this color, does it match the palette?" It didn't have one
+  (an arbitrary default from before the palette existed as a deliberate system) and
+  is now a cool violet instead. Any future accent color addition should be able to
+  answer "why this hue, next to these other two" before it ships.
+
 ### Applying this section
 
 Before closing out any future visual-defect report: (1) fix the specific render, (2)
 find and fix the general code path that produced it (not just the symptom), (3) add
 the general rule to this section so a retrain or a new template inherits it
 automatically instead of relying on someone remembering this specific incident.
+
+### The actual end of the map saga: reuse eligibility needs a prompt version too
+
+The "prompt fix does nothing if the cache still serves the old image" section above
+named `resolveConceptViaLibrary`'s (Layer 2 auto-expand) semantic-match reuse as a
+NOT YET FIXED gap. It turned out to be the actual reason a map backdrop kept coming
+back warm through FOUR separate prompt-level fix attempts (wrapper wording, concept-
+text sanitizing, an explicit planner instruction, an explicit anti-antique-map
+negation) that each looked reasonable and each did nothing: a single asset generated
+before any of those fixes — `auto-a-stylized-map-of-the-united-states-...`,
+`quarantineStatus: "promoted"` — was sitting in the shared registry and getting
+matched by `findSemanticMatch` for every subsequent similar concept, short-circuiting
+generation entirely before ANY of the fixed prompt code ever ran. Every one of those
+four fix attempts was individually correct and collectively pointless, because none
+of them touched the code path actually serving the image.
+
+Fixed properly this time, not just patched: `LibraryAssetRecord` now carries a
+`promptVersion` field, stamped from `TRAINED_STYLE_PROMPT_VERSION` at generation time.
+`resolveConceptViaLibrary`'s reuse filter now requires an exact version match —
+anything generated under an older (or missing/pre-field) version is excluded from
+reuse and falls through to a fresh generation instead. **Standing rule, stronger than
+the one above: bumping `TRAINED_STYLE_PROMPT_VERSION` is necessary but not
+sufficient — verify it actually reaches every place an image can be SERVED from, not
+just where it's generated.** This pipeline has (at least) three: the plain concept
+cache (`cache.ts`), the semantic-reuse library (`autoExpand.ts`), and the curated v1
+manifest library (a separate system entirely, already fully regenerated and unaffected
+by this). A fix that only patches the first of these and declares victory will look
+correct on a lucky render and silently fail on the next semantically-similar one.
+
+The local dev registry (`style-model-candidates/auto-expanded-registry.json`, 56
+entries, none carrying the new field) was cleared outright rather than left to
+accumulate as dead weight — the version filter alone already made every entry in it
+permanently unreachable, so nothing was lost by deleting the file. A real deployment
+has the equivalent problem in its Firestore `assetLibrary` collection and should have
+its old (pre-field) auto-expanded records reviewed the same way before relying on
+Layer 2 reuse at scale.

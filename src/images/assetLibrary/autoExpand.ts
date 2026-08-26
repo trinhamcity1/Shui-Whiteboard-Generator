@@ -5,7 +5,7 @@ import { appendLocalLibraryAsset } from "./localRegistry";
 import { findSemanticMatch } from "./semanticMatch";
 import { detectAnchors } from "./anchorDetection";
 import { uploadBufferToR2 } from "../../storage/r2";
-import { TrainedStyleImageProvider } from "../trainedStyle";
+import { TrainedStyleImageProvider, TRAINED_STYLE_PROMPT_VERSION } from "../trainedStyle";
 import type { StyleModelVersion } from "../styleModel/types";
 
 export interface AutoExpandResult {
@@ -52,7 +52,20 @@ export async function resolveConceptViaLibrary(
   // cutout are processed completely differently (one keeps its full
   // background, the other has it removed), so a textually-similar
   // description across roles is never actually a usable match.
-  const promoted = allAssets.filter((a) => a.quarantineStatus === "promoted" && a.role === role);
+  // Real render evidence: a "promoted" asset generated before a prompt fix
+  // kept getting matched and reused for every semantically-similar concept
+  // afterward, completely bypassing that fix — reuse eligibility never
+  // checked what prompt version actually produced the asset. Only an asset
+  // stamped with the CURRENT trained-style prompt version is eligible;
+  // anything older (or generated before this field existed at all,
+  // promptVersion undefined) falls through to a fresh generation instead of
+  // resurfacing potentially-stale output. See the design-system doc's
+  // Revision 4 "prompt fix does nothing if the cache still serves the old
+  // image" section — this closes the gap flagged there for
+  // resolveConceptViaLibrary specifically.
+  const promoted = allAssets.filter(
+    (a) => a.quarantineStatus === "promoted" && a.role === role && a.promptVersion === TRAINED_STYLE_PROMPT_VERSION,
+  );
 
   const exactMatch = promoted.find((a) => normalize(a.description) === normalize(concept));
   if (exactMatch) {
@@ -118,6 +131,7 @@ export async function resolveConceptViaLibrary(
     labelAnchor: anchorResult.labelAnchor ?? undefined,
     anchors: anchorResult.anchors.length > 0 ? anchorResult.anchors : undefined,
     dominantColor: anchorResult.dominantColor ?? undefined,
+    promptVersion: TRAINED_STYLE_PROMPT_VERSION,
   };
 
   if (isFirestoreKnownUnreachable()) {
