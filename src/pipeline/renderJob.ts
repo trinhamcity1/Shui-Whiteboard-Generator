@@ -10,6 +10,7 @@ import { resolveSceneDocument, type SceneDocumentRequest } from "./resolveSceneD
 import { inlineRemoteImagesForLocalDev } from "./localDevInlining";
 import { runLayoutQA, type LayoutQALogEntry } from "./layoutQA";
 import { promotePendingAssets } from "../images/assetLibrary/promote";
+import { generateQuizFromScript, type QuizCurrentDoc, type QuizAnswersDoc } from "../schema/quizGeneration";
 import type { SceneInputProps } from "../render/Root";
 
 export interface RenderJobResult {
@@ -23,6 +24,8 @@ export interface RenderJobResult {
   sceneDocumentDebug?: unknown;
   layoutQaLog?: LayoutQALogEntry[];
   assetPromotionLog?: string[];
+  /** Present only when args.generateQuiz was set — Shui's "video + quiz together" contract (see quizGeneration.ts). */
+  quiz?: { quizCurrent: QuizCurrentDoc; quizAnswers: QuizAnswersDoc };
 }
 
 /**
@@ -45,12 +48,20 @@ export async function renderSceneDocumentJob(args: {
   inlineImagesForLocalDev?: boolean;
   /** Revision-3 Workstream 4 — runs the vision-LLM layout QA pass over every composed scene before the final render. Opt-in until validated against enough real renders to flip the default. */
   enableLayoutQA?: boolean;
+  /** Shui's "video + quiz together" contract — generates a Shui-compatible quiz (quiz/current + quiz/answers) from the video's own narration alongside the render. Opt-in: only Shui's on-demand-lesson path needs this, not every WG caller. */
+  generateQuiz?: boolean;
+  /** See quizGeneration.ts's own default — caps how many questions a single quiz can have, never forces that many. */
+  quizMaxQuestions?: number;
 }): Promise<RenderJobResult> {
   const { sceneDocument, scriptWriting, scenePlanning, imageResolution } = await resolveSceneDocument(args.request);
 
   if (args.inlineImagesForLocalDev) {
     await inlineRemoteImagesForLocalDev(sceneDocument);
   }
+
+  const quizGeneration = args.generateQuiz
+    ? await generateQuizFromScript(sceneDocument.narrationScript, { maxQuestions: args.quizMaxQuestions })
+    : undefined;
 
   const tts = new ElevenLabsTTSProvider(args.apiKey);
   const ttsResult = await tts.synthesize(sceneDocument.narrationScript, { voice: sceneDocument.voice });
@@ -143,6 +154,8 @@ export async function renderSceneDocumentJob(args: {
     scriptWritingCostUsd: scriptWriting?.costUsd,
     scenePlanningLLMTokens: scenePlanning?.tokensUsed,
     scenePlanningCostUsd: scenePlanning?.costUsd,
+    quizGenerationLLMTokens: quizGeneration?.tokensUsed,
+    quizGenerationCostUsd: quizGeneration?.costUsd,
     imagesGenerated: imageResolution?.imagesGenerated,
     imageCacheHits: imageResolution?.cacheHits,
     imageGenerationCostUsd: imageResolution?.costUsd,
@@ -161,5 +174,6 @@ export async function renderSceneDocumentJob(args: {
     sceneDocumentDebug: sceneDocument,
     layoutQaLog,
     assetPromotionLog,
+    quiz: quizGeneration ? { quizCurrent: quizGeneration.quizCurrent, quizAnswers: quizGeneration.quizAnswers } : undefined,
   };
 }

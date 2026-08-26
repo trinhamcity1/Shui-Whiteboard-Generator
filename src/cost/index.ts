@@ -28,6 +28,9 @@ export interface JobCost {
   scriptWritingCostUsd?: number;
   scenePlanningLLMTokens?: number;
   scenePlanningCostUsd?: number;
+  /** Shui's "video + quiz together" contract — one LLM call generating quiz/current + quiz/answers from the video's own narration. Absent when quiz generation wasn't requested. */
+  quizGenerationLLMTokens?: number;
+  quizGenerationCostUsd?: number;
   imagesGenerated?: number;
   imageCacheHits?: number;
   imageGenerationCostUsd?: number;
@@ -49,6 +52,8 @@ export function buildJobCost(args: {
   scriptWritingCostUsd?: number;
   scenePlanningLLMTokens?: number;
   scenePlanningCostUsd?: number;
+  quizGenerationLLMTokens?: number;
+  quizGenerationCostUsd?: number;
   imagesGenerated?: number;
   imageCacheHits?: number;
   imageGenerationCostUsd?: number;
@@ -59,6 +64,7 @@ export function buildJobCost(args: {
   const { renderComputeCostUsd } = estimateRenderComputeCost(args.renderWallClockSeconds);
   const scriptWritingCostUsd = args.scriptWritingCostUsd ?? 0;
   const scenePlanningCostUsd = args.scenePlanningCostUsd ?? 0;
+  const quizGenerationCostUsd = args.quizGenerationCostUsd ?? 0;
   const imageGenerationCostUsd = args.imageGenerationCostUsd ?? 0;
   const layoutQaCostUsd = args.layoutQaCostUsd ?? 0;
   const assetPromotionCostUsd = args.assetPromotionCostUsd ?? 0;
@@ -69,6 +75,8 @@ export function buildJobCost(args: {
     scriptWritingCostUsd: args.scriptWritingCostUsd,
     scenePlanningLLMTokens: args.scenePlanningLLMTokens,
     scenePlanningCostUsd: args.scenePlanningCostUsd,
+    quizGenerationLLMTokens: args.quizGenerationLLMTokens,
+    quizGenerationCostUsd: args.quizGenerationCostUsd,
     imagesGenerated: args.imagesGenerated,
     imageCacheHits: args.imageCacheHits,
     imageGenerationCostUsd: args.imageGenerationCostUsd,
@@ -82,6 +90,7 @@ export function buildJobCost(args: {
       renderComputeCostUsd +
       scriptWritingCostUsd +
       scenePlanningCostUsd +
+      quizGenerationCostUsd +
       imageGenerationCostUsd +
       layoutQaCostUsd +
       assetPromotionCostUsd,
@@ -106,6 +115,11 @@ export function printJobCost(cost: JobCost, label?: string): void {
   if (cost.scenePlanningCostUsd !== undefined) {
     console.log(
       `Planning: ${cost.scenePlanningLLMTokens ?? 0} tokens -> $${cost.scenePlanningCostUsd.toFixed(4)}`,
+    );
+  }
+  if (cost.quizGenerationCostUsd !== undefined) {
+    console.log(
+      `Quiz:     ${cost.quizGenerationLLMTokens ?? 0} tokens -> $${cost.quizGenerationCostUsd.toFixed(4)}`,
     );
   }
   if (usesImages) {
