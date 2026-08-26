@@ -23,6 +23,7 @@ export function serializeJob(job: JobRecord, opts: { canDownload?: boolean } = {
     result_url: canDownload ? job.resultUrl : undefined,
     download_locked: !canDownload && job.status === "ready",
     cost: job.cost,
+    quiz: job.quiz,
     created_at: job.createdAt,
     updated_at: job.updatedAt,
   };

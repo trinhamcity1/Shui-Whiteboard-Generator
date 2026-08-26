@@ -5,6 +5,7 @@ import path from "node:path";
 import { initializeApp, getApps, cert, applicationDefault } from "firebase-admin/app";
 import { getFirestore, Timestamp, FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { JobCost } from "../cost/index";
+import type { QuizCurrentDoc, QuizAnswersDoc } from "../schema/quizGeneration";
 import type { SceneDocumentRequest } from "../pipeline/resolveSceneDocument";
 import type { AdRequest } from "../schema/ad";
 import { appendLocalApiKey, getLocalApiKey, listLocalApiKeysForOwner, setLocalApiKeyActive } from "./localApiKeys";
@@ -27,6 +28,8 @@ export interface JobRecord {
   title?: string;
   resultUrl?: string;
   cost?: JobCost;
+  /** Present only when the request set generateQuiz: true — Shui's "video + quiz together" contract (see quizGeneration.ts). */
+  quiz?: { quizCurrent: QuizCurrentDoc; quizAnswers: QuizAnswersDoc };
   request: SceneDocumentRequest | AdRequest;
   createdAt: number;
   updatedAt: number;

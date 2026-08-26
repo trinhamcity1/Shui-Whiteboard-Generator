@@ -54,6 +54,11 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
       return;
     }
 
+    // generateQuiz/quizMaxQuestions ride along on the same request body as
+    // everything else (job.request is the raw POST body, stored wholesale)
+    // rather than being SceneDocumentRequest fields — they're render-job
+    // options, not part of the scene-document shape itself.
+    const quizOptions = job.request as { generateQuiz?: unknown; quizMaxQuestions?: unknown };
     const result = await renderSceneDocumentJob({
       request: job.request as Parameters<typeof renderSceneDocumentJob>[0]["request"],
       apiKey,
@@ -61,6 +66,8 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
       outputLocation,
       uploadKey: `jobs/${job.id}.mp4`,
       audioFileName: `tts-audio-${job.id}.mp3`,
+      generateQuiz: quizOptions.generateQuiz === true,
+      quizMaxQuestions: typeof quizOptions.quizMaxQuestions === "number" ? quizOptions.quizMaxQuestions : undefined,
     });
 
     if (!result.uploadUrl) {
@@ -114,6 +121,7 @@ export async function handleRenderJob(payload: RenderJobPayload, rootDir: string
       status: "ready",
       resultUrl: result.uploadUrl,
       cost: result.jobCost,
+      quiz: result.quiz,
       statusMessage: combinedStatusMessage || undefined,
     });
   } catch (err) {
