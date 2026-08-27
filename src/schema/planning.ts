@@ -3,6 +3,7 @@ import { z } from "zod";
 import { SceneAction, type SceneAction as SceneActionT } from "./scene";
 import { AVAILABLE_ICON_NAMES } from "../render/icons/registry";
 import { ASSET_MANIFEST, describeManifestEntry } from "../images/assetLibrary/manifest";
+import { collectDiagramNodes, isNodeSequenceSpec } from "./diagram";
 
 export interface ScenePlanningResult {
   actions: SceneActionT[];
@@ -62,10 +63,12 @@ function collectReferencedAssetIds(actions: SceneActionT[]): string[] {
     if (action.assetId) ids.push(action.assetId);
     const diagram = action.sketchDiagram;
     if (diagram) {
-      if (diagram.leftCharacterAssetId) ids.push(diagram.leftCharacterAssetId);
-      if (diagram.rightCharacterAssetId) ids.push(diagram.rightCharacterAssetId);
-      for (const tier of diagram.tiers) {
-        if (tier.insetAssetId) ids.push(tier.insetAssetId);
+      if (isNodeSequenceSpec(diagram)) {
+        if (diagram.leftCharacterAssetId) ids.push(diagram.leftCharacterAssetId);
+        if (diagram.rightCharacterAssetId) ids.push(diagram.rightCharacterAssetId);
+      }
+      for (const node of collectDiagramNodes(diagram)) {
+        if (node.insetAssetId) ids.push(node.insetAssetId);
       }
     }
     const composition = action.composition;
@@ -151,35 +154,75 @@ Rules:
     back to "imageConcept" (a short, concrete description of exactly what should be drawn) for something
     genuinely not in the library. NEVER set "imageUrl" yourself — you have no real images, only descriptions
     and asset ids.
-  - sketchDiagram: "sketchDiagram" object — {"diagramType": "pyramid" | "flowchart" | "comparison",
-    "title": string, "tiers": [{"label": string, "insetAssetId"?: string}, ...], "topLabel"?: string,
-    "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string,
-    "isCyclical"?: boolean}.
-    insetAssetId (pyramid mode only) places a small icon-scale library asset inside that tier next to its
-    label, when one from the library fits — "diagram shapes carry embedded content," a small icon inside
-    the tier reads as more composed than a bare colored band. Optional; only set it when a real matching
-    icon-scale asset exists in the library below. Tier labels are drawn as real
-    text, always correctly spelled — never ask for a diagram with words baked into an
-    imageConcept/assetId illustration. Keep each tier/step label SHORT (a few words, not a full clause
-    with its own explanation) — it has to fit inside a drawn shape, not read like a sentence.
-    - "pyramid": a real hierarchy or ranking only — e.g. "federal, state, and local government" (each
-      tier is genuinely subordinate to the one above it). Do NOT use pyramid for a sequence, process, or
-      cycle — that visually claims a ranking the content doesn't have.
-    - "flowchart": a sequence, process, or cycle — steps happen in order (e.g. "evaporation →
-      condensation → precipitation → collection"). Tiers become connected boxes in order. Set
-      "isCyclical": true ONLY when the script explicitly describes the last step leading back into the
-      first, making it a genuine repeating loop (e.g. the water cycle) — this draws a curved return arrow
-      from the last box back to the first. Leave it false/omitted for a plain one-shot sequence or a list
-      of parallel examples that merely happen to use box shapes (e.g. three unrelated ways the mind can
-      wander) — those are NOT cycles, and drawing a loop arrow onto them is wrong even though they use
-      "flowchart". When in doubt, default to false.
-    - "comparison": exactly two tiers, side by side — for "X vs Y" content.
-    leftCharacterAssetId/rightCharacterAssetId — ALWAYS set leftCharacterAssetId (and
-    rightCharacterAssetId for a "pyramid" diagram specifically — flowchart/comparison only render the
-    left character) when the library has a character relevant to the diagram's subject (check the
-    library below first). A diagram about courts or law enforcement with a judge or officer available in
-    the library and NOT placed beside it is a mistake, not a valid minimal choice — an empty diagram is a
-    worse video than one with its relevant characters present.
+  - sketchDiagram: "sketchDiagram" object, discriminated by "kind" — the full diagram library (14 kinds
+    across 6 families). Every kind is ink-first: nodes render with NO fill color unless you set a node's
+    "emphasis" ("positive"/"negative" for correct/incorrect, or "accent1"/"accent2"/"accent3" for a
+    genuine category legend you state in the narration, e.g. "blue is federal, violet is state") — never
+    add emphasis just to look colorful. Every label is drawn as real text, always correctly spelled —
+    never ask for a diagram with words baked into an imageConcept/assetId illustration. Keep every label
+    SHORT (a few words, not a full clause with its own explanation) — it has to fit inside a drawn shape.
+    Pick the kind that matches the content's actual SHAPE of relationship, not habit — reaching for the
+    same one or two kinds regardless of content is a planning failure this schema exists to prevent.
+
+    Six kinds share one "node-sequence" shape ({"nodes": [{"id": string, "label": string,
+    "insetAssetId"?: string, "emphasis"?: ...}, ...], "title": string, "topLabel"?: string,
+    "bottomBanner"?: string, "leftCharacterAssetId"?: string, "rightCharacterAssetId"?: string}) — the six
+    differ only in what shape the content actually has:
+    - "pyramid": a real hierarchy or ranking — e.g. federal/state/local government (each node genuinely
+      subordinate to the one above). NOT for a sequence or process — that claims a ranking the content
+      doesn't have.
+    - "funnel": a shrinking QUANTITY through stages — e.g. applicants -> interviewed -> hired. The only
+      other tapering shape in this library, and only because the taper means something here (fewer things
+      remain at each stage) — never use it for a ranking, that's pyramid.
+    - "flowchart": a one-shot or repeating SEQUENCE — steps happen in order (e.g. "evaporation ->
+      condensation -> precipitation -> collection"). Add "isCyclical": true ONLY when the script
+      explicitly describes the last step leading back into the first (e.g. the water cycle) — draws one
+      loop-back arrow. Leave it false/omitted for a plain sequence or a list of parallel examples that
+      merely happen to use box shapes (three unrelated ways the mind can wander is NOT a cycle). When a
+      process has no natural "first step" at all (it's genuinely circular, not just repeating), prefer
+      "cycle" below instead — a loop-back arrow on a line implies a start; a ring doesn't.
+    - "cycle": a genuinely circular process with no natural starting point, nodes arranged in a ring.
+    - "radial": ADD "centerLabel": string. One central concept with independent facets/categories that
+      have NO order or ranking relative to each other (e.g. "the four freedoms," "types of law"). Do not
+      use for a sequence (flowchart) or a ranking (pyramid).
+    - "comparison": 2+ nodes side by side, for "X vs Y" content. Exactly 2 nodes gets a VS divider.
+
+    The other eight kinds are genuinely different shapes, each with its own fields:
+    - "tree": {"nodes": [{"id","label","parentId"?: string, ...}], "title"}. A branching hierarchy with a
+      VARYING number of children per level (an org chart, a taxonomy) — pyramid is a fixed linear stack,
+      tree is for actual branching. Omit parentId on a root node.
+    - "matrix": {"title", "xAxisLabel", "yAxisLabel", "quadrants": [4 objects, reading order top-left,
+      top-right, bottom-left, bottom-right, each {"label", "description"?}]}. A genuine TWO-AXIS
+      classification (urgency x importance, federal x state jurisdiction) — needs two real independent
+      dimensions, not just four unrelated categories (that's radial).
+    - "venn": {"title", "sets": [2-3 {"id","label"}], "overlapLabels"?: {"<sorted ids joined with '+'>":
+      string}}. Genuine SET OVERLAP only — things that share some but not all properties. Never force a
+      plain comparison into a Venn for visual variety; an empty or near-empty overlap is a mistake.
+    - "fishbone": {"title", "effect": string, "categories": [1-6 {"label", "causes": string[]}]}. "Why did
+      X happen" content — one effect, several categories of contributing causes. Not a sequence
+      (flowchart) or a single cause->effect pair (a plain arrow decoration handles that).
+    - "network": {"title", "nodes": [{"id","label",...}], "edges": [{"fromId","toId","label"?}]}.
+      Arbitrary connections with NO hierarchy or sequence implied — a system's components and how they
+      connect, entities and their relationships. Use when the content is genuinely a web of connections.
+    - "swimlane": {"title", "lanes": [2-4 {"id","label"}], "nodes": [{"id","label","laneId",...}],
+      "edges": [...]}. A process split across multiple actors/departments — use when WHO does each step
+      matters as much as the step (e.g. "how a bill becomes law": Congress's lane, the President's lane,
+      the Courts' lane).
+    - "sequenceDiagram": {"title", "actors": [2-5 {"id","label"}], "messages": [{"fromActorId",
+      "toActorId","label"} in top-to-bottom time order]}. TECHNICAL/SYSTEMS CONTENT ONLY — "how does a
+      request flow through this system," actor-to-actor handoffs over time. Never use for a general
+      process with no real technical actor handoff (that's flowchart or swimlane).
+    - "classDiagram": {"title", "classes": [{"id","name","attributes"?: string[]}], "relationships":
+      [{"fromClassId","toClassId","label"?}]}. TECHNICAL CONTENT ONLY — a data model or system's entities
+      and structural relationships, not a flow of events over time (that's sequenceDiagram).
+
+    insetAssetId (node-sequence/tree/network/swimlane kinds only) places a small icon-scale library asset
+    inside a node next to its label, when a real matching one exists in the library below — optional,
+    only when it actually fits.
+    leftCharacterAssetId/rightCharacterAssetId (node-sequence kinds only; rightCharacter renders for
+    "pyramid" specifically, the others only render left) — ALWAYS set one when the library has a character
+    relevant to the diagram's subject. A diagram about courts or law enforcement with a judge or officer
+    available in the library and NOT placed beside it is a mistake, not a valid minimal choice.
   - composition: "composition" object — {"templateId": one of the eight below, "title"?: string,
     "dividerStyle"?: "vs"|"torn" (comparison-2box only), "slots": {"<slotName>": {"assetId"?: string,
     "imageConcept"?: string, "label"?: string, "revealAtSeconds"?: number, "attachTo"?: string}}}. A

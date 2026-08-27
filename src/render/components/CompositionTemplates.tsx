@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { DrawOn } from "./DrawOn";
-import { SketchDiagram } from "./SketchDiagram";
+import { NodeSequenceDiagram } from "../diagrams/NodeSequenceDiagram";
 import { SKETCH_COLORS, SKETCH_LAYOUT, SKETCH_FONT_FAMILY, sketchFontFaceCss } from "../sketchStyle";
 import { DecorationLayer, TornPaperEdge, Arrow } from "../decorations";
 import type { CompositionSlot } from "../../schema/scene";
@@ -289,22 +289,17 @@ export function PyramidFlankedTemplate({ title, slots }: CompositionTemplateProp
   const tierEntries = Object.entries(slots)
     .filter(([key]) => key.startsWith("tier"))
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-    .map(([, slot]) => ({ label: slot.label ?? "", insetSrc: slot.imageUrl }))
+    .map(([key, slot]) => ({ id: key, label: slot.label ?? "", insetImageUrl: slot.imageUrl }))
     .filter((t) => t.label.length > 0);
 
   return (
     <>
-      <SketchDiagram
-        diagramType="pyramid"
+      <NodeSequenceDiagram
+        kind="pyramid"
         title={title ?? ""}
-        // Revision-3 WS5 pyramid-flanked upgrade: topLabel/bottomBanner
-        // slots (rendered by SketchDiagram as WS2 BannerRibbon panels, per
-        // the WS3 item-4 refactor) and each tierN slot's own resolved
-        // imageUrl (a tier-inset icon, per WS3 item 2) — previously wired
-        // into SketchDiagram's props but never actually reached from here.
         topLabel={slots.topLabel?.label}
         bottomBanner={slots.bottomBanner?.label}
-        tiers={tierEntries.length > 0 ? tierEntries : [{ label: "" }]}
+        nodes={tierEntries.length > 0 ? tierEntries : [{ id: "tier1", label: "" }]}
         leftCharacterSrc={slots.leftCharacter?.imageUrl}
         rightCharacterSrc={slots.rightCharacter?.imageUrl}
       />

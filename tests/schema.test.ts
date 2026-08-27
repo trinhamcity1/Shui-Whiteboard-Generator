@@ -63,10 +63,13 @@ describe("SceneDocument schema", () => {
           atSeconds: 0,
           durationSeconds: 5,
           sketchDiagram: {
+            kind: "flowchart",
             title: "The Water Cycle",
-            diagramType: "flowchart",
             isCyclical: true,
-            tiers: [{ label: "Evaporation" }, { label: "Condensation" }],
+            nodes: [
+              { id: "evaporation", label: "Evaporation" },
+              { id: "condensation", label: "Condensation" },
+            ],
           },
         },
       ],
@@ -83,9 +86,12 @@ describe("SceneDocument schema", () => {
           atSeconds: 0,
           durationSeconds: 5,
           sketchDiagram: {
+            kind: "flowchart",
             title: "Ways the Mind Wanders",
-            diagramType: "flowchart",
-            tiers: [{ label: "Remembers an Email" }, { label: "Replays an Argument" }],
+            nodes: [
+              { id: "email", label: "Remembers an Email" },
+              { id: "argument", label: "Replays an Argument" },
+            ],
           },
         },
       ],

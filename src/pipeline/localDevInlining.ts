@@ -1,5 +1,6 @@
 import type { SceneDocument } from "../schema/scene";
 import type { AdDocument } from "../schema/ad";
+import { collectDiagramNodes, isNodeSequenceSpec } from "../schema/diagram";
 
 /**
  * This sandboxed dev container has an unresolved gap: headless Chromium
@@ -34,15 +35,17 @@ export async function inlineRemoteImagesForLocalDev(sceneDocument: SceneDocument
     }
     const diagram = action.sketchDiagram;
     if (diagram) {
-      if (diagram.leftCharacterUrl?.startsWith("https://")) {
-        diagram.leftCharacterUrl = await toDataUri(diagram.leftCharacterUrl);
+      if (isNodeSequenceSpec(diagram)) {
+        if (diagram.leftCharacterUrl?.startsWith("https://")) {
+          diagram.leftCharacterUrl = await toDataUri(diagram.leftCharacterUrl);
+        }
+        if (diagram.rightCharacterUrl?.startsWith("https://")) {
+          diagram.rightCharacterUrl = await toDataUri(diagram.rightCharacterUrl);
+        }
       }
-      if (diagram.rightCharacterUrl?.startsWith("https://")) {
-        diagram.rightCharacterUrl = await toDataUri(diagram.rightCharacterUrl);
-      }
-      for (const tier of diagram.tiers) {
-        if (tier.insetImageUrl?.startsWith("https://")) {
-          tier.insetImageUrl = await toDataUri(tier.insetImageUrl);
+      for (const node of collectDiagramNodes(diagram)) {
+        if (node.insetImageUrl?.startsWith("https://")) {
+          node.insetImageUrl = await toDataUri(node.insetImageUrl);
         }
       }
     }

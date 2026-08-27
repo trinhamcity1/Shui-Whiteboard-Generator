@@ -7,6 +7,7 @@ import { resolveImages, type ImageResolutionResult } from "../images/resolveImag
 import { TrainedStyleImageProvider } from "../images/trainedStyle";
 import { getEchoModel } from "../storage/firestore";
 import { ICON_ASSET_ID_MAP } from "../render/icons/registry";
+import { collectDiagramNodes, isNodeSequenceSpec } from "../schema/diagram";
 
 export interface PreAuthoredRequest {
   scenes: unknown; // validated against SceneDocument below
@@ -101,9 +102,11 @@ function needsImageResolution(sceneDocument: SceneDocument): boolean {
     if (action.assetId && !action.imageUrl) return true;
     const diagram = action.sketchDiagram;
     if (diagram) {
-      if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) return true;
-      if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) return true;
-      if (diagram.tiers.some((tier) => tier.insetAssetId && !tier.insetImageUrl)) return true;
+      if (isNodeSequenceSpec(diagram)) {
+        if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) return true;
+        if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) return true;
+      }
+      if (collectDiagramNodes(diagram).some((node) => node.insetAssetId && !node.insetImageUrl)) return true;
     }
     const composition = action.composition;
     if (composition) {

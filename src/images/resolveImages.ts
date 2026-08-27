@@ -1,4 +1,5 @@
 import type { SceneDocument, CompositionSlot } from "../schema/scene";
+import { collectDiagramNodes, isNodeSequenceSpec } from "../schema/diagram";
 import type { ImageProvider, ImageProviderName } from "./types";
 import { resolveImage } from "./cache";
 import { resolveAssetId } from "./assetLibrary/registryLookup";
@@ -68,26 +69,28 @@ function collectAssetIdTargets(sceneDocument: SceneDocument): AssetIdTarget[] {
 
     const diagram = action.sketchDiagram;
     if (diagram) {
-      if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) {
-        targets.push({
-          assetId: diagram.leftCharacterAssetId,
-          label: `sketchDiagram leftCharacterAssetId (action "${action.id}")`,
-          setUrl: (url) => (diagram.leftCharacterUrl = url),
-        });
-      }
-      if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) {
-        targets.push({
-          assetId: diagram.rightCharacterAssetId,
-          label: `sketchDiagram rightCharacterAssetId (action "${action.id}")`,
-          setUrl: (url) => (diagram.rightCharacterUrl = url),
-        });
-      }
-      diagram.tiers.forEach((tier, tierIndex) => {
-        if (tier.insetAssetId && !tier.insetImageUrl) {
+      if (isNodeSequenceSpec(diagram)) {
+        if (diagram.leftCharacterAssetId && !diagram.leftCharacterUrl) {
           targets.push({
-            assetId: tier.insetAssetId,
-            label: `sketchDiagram tier[${tierIndex}] insetAssetId (action "${action.id}")`,
-            setUrl: (url) => (tier.insetImageUrl = url),
+            assetId: diagram.leftCharacterAssetId,
+            label: `sketchDiagram leftCharacterAssetId (action "${action.id}")`,
+            setUrl: (url) => (diagram.leftCharacterUrl = url),
+          });
+        }
+        if (diagram.rightCharacterAssetId && !diagram.rightCharacterUrl) {
+          targets.push({
+            assetId: diagram.rightCharacterAssetId,
+            label: `sketchDiagram rightCharacterAssetId (action "${action.id}")`,
+            setUrl: (url) => (diagram.rightCharacterUrl = url),
+          });
+        }
+      }
+      collectDiagramNodes(diagram).forEach((node, nodeIndex) => {
+        if (node.insetAssetId && !node.insetImageUrl) {
+          targets.push({
+            assetId: node.insetAssetId,
+            label: `sketchDiagram node[${nodeIndex}] insetAssetId (action "${action.id}")`,
+            setUrl: (url) => (node.insetImageUrl = url),
           });
         }
       });

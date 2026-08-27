@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DiagramSpec } from "./diagram";
 
 export const SceneActionType = z.enum([
   "titleCard",
@@ -24,49 +25,15 @@ export const ComparisonCard = z.object({
   items: z.array(z.string()),
 });
 
-// Revision-2 Layer 1 — mirrors SketchDiagram.tsx's props. Only "pyramid"
-// shape is implemented so far (flowchart/comparison come later), so this
-// schema only needs the pyramid fields for now.
-export const PyramidTierSchema = z.object({
-  label: z.string(),
-  color: z.string().optional(),
-  // Revision-3 Workstream 3: an optional small icon-scale illustration
-  // inside the tier itself, alongside its label — "diagram shapes carry
-  // embedded content" (Part I §8), not just an outline. Resolved to
-  // insetImageUrl by resolveImages, same pattern as assetId elsewhere —
-  // never author-supplied directly.
-  insetAssetId: z.string().optional(),
-  insetImageUrl: z.string().optional(),
-});
-
-export const SketchDiagramSpec = z.object({
-  title: z.string(),
-  // "pyramid" — ranked/hierarchical tiers (unchanged, the original shape).
-  // "flowchart" — a top-to-bottom sequence of connected steps, for a
-  // process or cycle (the tiers ARE the steps, in order) — never force a
-  // process into a pyramid just because pyramid was the only shape
-  // available; a pyramid visually claims a ranking that a sequence doesn't
-  // have. "comparison" — two boxes side by side (uses the first two tiers).
-  diagramType: z.enum(["pyramid", "flowchart", "comparison"]).default("pyramid"),
-  // flowchart-only: true draws a curved return arrow from the last step
-  // back to the first, for a process that genuinely repeats (the water
-  // cycle). Caught on a real render: this used to be automatic for every
-  // flowchart with more than one step, which drew a loop-back arrow onto
-  // a plain non-repeating sequence (three unrelated examples of "the mind
-  // wandering") — a flowchart is also the right shape for a one-shot
-  // sequence with no cycle, so the loop can no longer be assumed.
-  isCyclical: z.boolean().optional(),
-  topLabel: z.string().optional(),
-  tiers: z.array(PyramidTierSchema).min(1),
-  bottomBanner: z.string().optional(),
-  leftCharacterAssetId: z.string().optional(),
-  rightCharacterAssetId: z.string().optional(),
-  // Populated by resolveImages (not author-supplied) once
-  // leftCharacterAssetId/rightCharacterAssetId are looked up in the
-  // registry — the renderer reads these, never the raw asset ids.
-  leftCharacterUrl: z.string().optional(),
-  rightCharacterUrl: z.string().optional(),
-});
+// Diagram Library rebuild: the old pyramid/flowchart/comparison-only spec
+// (which is why every video reached for the same pyramid shape regardless
+// of content) is replaced by the full DiagramSpec union in ./diagram.ts —
+// 14 kinds across 6 families (node-sequence, tree, matrix, venn, fishbone,
+// network, swimlane, and the two UML kinds), all sharing the same
+// ink-first, semantic-color-only rendering discipline. See
+// shui-wg/shui-wg-library-phase/shui-wg-phase-07-diagram-library.md for
+// the taxonomy this implements.
+export const SketchDiagramSpec = DiagramSpec;
 export type SketchDiagramSpec = z.infer<typeof SketchDiagramSpec>;
 
 // Revision-3 Workstream 2 — the doodle decoration vocabulary: owned SVG

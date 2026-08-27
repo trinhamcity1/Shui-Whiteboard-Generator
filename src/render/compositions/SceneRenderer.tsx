@@ -9,7 +9,7 @@ import { Timeline } from "../components/Timeline";
 import { ComparisonCards } from "../components/ComparisonCards";
 import { Quote } from "../components/Quote";
 import { FullBleedGraphic } from "../components/FullBleedGraphic";
-import { SketchDiagram } from "../components/SketchDiagram";
+import { DiagramRenderer } from "../diagrams/DiagramRenderer";
 import {
   HeroBackdropTemplate,
   PyramidFlankedTemplate,
@@ -62,18 +62,7 @@ function ActionContent({ action }: { action: SceneAction }) {
     case "sketchDiagram": {
       const diagram = action.sketchDiagram;
       if (!diagram) return null;
-      return (
-        <SketchDiagram
-          diagramType={diagram.diagramType}
-          title={diagram.title}
-          topLabel={diagram.topLabel}
-          tiers={diagram.tiers.map((tier) => ({ label: tier.label, color: tier.color, insetSrc: tier.insetImageUrl }))}
-          bottomBanner={diagram.bottomBanner}
-          leftCharacterSrc={diagram.leftCharacterUrl}
-          rightCharacterSrc={diagram.rightCharacterUrl}
-          isCyclical={diagram.isCyclical}
-        />
-      );
+      return <DiagramRenderer {...diagram} />;
     }
     case "composition": {
       const composition = action.composition;

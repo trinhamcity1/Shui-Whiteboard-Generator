@@ -1,5 +1,6 @@
 import { planScenesFromScript, type ScenePlanningResult } from "../schema/planning";
 import type { SceneAction } from "../schema/scene";
+import { collectDiagramNodes } from "../schema/diagram";
 
 // Mirrors planning.ts's own WORDS_PER_SECOND (~150 wpm) — kept as a
 // separate constant here rather than importing a private one, since a
@@ -61,7 +62,8 @@ function summarizeAction(action: SceneAction): { summary: string; illustrated: b
       };
     case "sketchDiagram": {
       const d = action.sketchDiagram;
-      return { summary: `sketchDiagram (${d?.diagramType ?? "pyramid"}): "${d?.title ?? ""}" — ${(d?.tiers ?? []).map((t) => t.label).join(" -> ")}`, illustrated: true };
+      const nodeSummary = d ? collectDiagramNodes(d).map((n) => n.label).join(" -> ") : "";
+      return { summary: `sketchDiagram (${d?.kind ?? "pyramid"}): "${d?.title ?? ""}"${nodeSummary ? ` — ${nodeSummary}` : ""}`, illustrated: true };
     }
     case "composition": {
       const c = action.composition;

@@ -125,6 +125,7 @@ watching the output.
 | 4 | `shui-wg-phase-04-illustration-engine.md` | Real drawings and figures, not just text — two swappable image providers (Recraft vector, Flux raster), content-addressable caching, planner support for `imageConcept`, and a real side-by-side cost/quality comparison. **Amended** — see `shui-wg-phase-04-amendment-asset-library.md`, which supersedes live-per-render generation with a reusable asset library. |
 | 5 | `shui-wg-phase-05-productization-roadmap.md` | **Not a build phase.** What "public, on tri-nham.com, competing with Golpo" requires, and the trigger condition for starting it |
 | 6 | `shui-wg-phase-06-teaching-methodology.md` | The locked reference for *why* a video teaches, not just how it looks — nine retention/teaching techniques for adult learners, each mapped to what's already built vs. what still needs a planner-prompt change. Companion to `shui-wg-phase-04-revision-3-design-system.md` (that doc is "how it looks," this one is "why it sticks"). |
+| 7 | `shui-wg-phase-07-diagram-library.md` | The full diagram taxonomy — 14 kinds across 6 families (pyramid, funnel, flowchart, cycle, radial, comparison, tree, matrix, venn, fishbone, network, swimlane, UML sequence, UML class), replacing the old 3-shape SketchDiagram with a real library so WG can illustrate any topic domain, not just civics-shaped hierarchies. |
 
 Phase 4 exists because Phases 0-3, as originally specified, only ever produced
 typographic video (title cards, bullet lists, timelines) — the planner was explicitly

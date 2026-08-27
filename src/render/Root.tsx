@@ -4,7 +4,7 @@ import { SceneRenderer, type SceneRendererProps } from "./compositions/SceneRend
 import { AdRenderer, type AdRendererProps } from "./compositions/AdRenderer";
 import type { SceneDocument } from "../schema/scene";
 import type { AdDocument } from "../schema/ad";
-import { SketchDiagram, type SketchDiagramProps } from "./components/SketchDiagram";
+import { DiagramRenderer, type DiagramRendererProps } from "./diagrams/DiagramRenderer";
 import { BuildingCompositeTest } from "./components/BuildingCompositeTest";
 import { getPlatformPreset } from "./ad/platformPresets";
 
@@ -39,21 +39,21 @@ const DEFAULT_SCENE_DOCUMENT: SceneDocument = {
   actions: [],
 };
 
-// Proof-of-concept only (see SketchDiagram.tsx) — not part of the shipped
-// scene schema. Mimics the Golpo "Hierarchy of Law" reference frame to
-// validate the rough.js + real-text + library-character composite approach
-// before committing engineering time to the full sketchDiagram action type.
-const SKETCH_DIAGRAM_TEST_PROPS: SketchDiagramProps = {
+// Dev harness for quick visual iteration on the diagram library (see
+// src/render/diagrams/) without a full pipeline render — not part of the
+// shipped scene schema.
+const DIAGRAM_TEST_PROPS: DiagramRendererProps = {
+  kind: "pyramid",
   title: "HIERARCHY OF LAW",
   topLabel: "CONSTITUTION",
-  tiers: [
-    { label: "FEDERAL", color: "#5b8dd6" },
-    { label: "STATE", color: "#e07bab" },
-    { label: "LOCAL", color: "#eda45a" },
+  nodes: [
+    { id: "federal", label: "FEDERAL" },
+    { id: "state", label: "STATE" },
+    { id: "local", label: "LOCAL" },
   ],
   bottomBanner: "UNITED STATES",
-  leftCharacterSrc: staticFile("test-assets/judge-candidate-transparent.png"),
-  rightCharacterSrc: staticFile("test-assets/officer-candidate-transparent.png"),
+  leftCharacterUrl: staticFile("test-assets/judge-candidate-transparent.png"),
+  rightCharacterUrl: staticFile("test-assets/officer-candidate-transparent.png"),
 };
 
 export function RemotionRoot() {
@@ -107,12 +107,12 @@ export function RemotionRoot() {
       />
       <Composition
         id="SketchDiagramTest"
-        component={SketchDiagram}
+        component={DiagramRenderer}
         fps={30}
-        width={1000}
-        height={800}
+        width={1080}
+        height={1920}
         durationInFrames={1}
-        defaultProps={SKETCH_DIAGRAM_TEST_PROPS}
+        defaultProps={DIAGRAM_TEST_PROPS}
       />
       <Composition
         id="BuildingCompositeTest"
