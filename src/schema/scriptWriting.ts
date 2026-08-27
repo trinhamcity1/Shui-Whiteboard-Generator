@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { WORDS_PER_SECOND } from "./planning";
+import { SCRIPTWRITING_METHODOLOGY_RULES } from "./methodology";
 
 export interface ScriptWritingResult {
   narrationScript: string;
@@ -22,7 +23,9 @@ const DEFAULT_MODEL = "claude-sonnet-5";
 // so the billing estimate must not silently treat it as zero-length.
 export const DEFAULT_TARGET_DURATION_SECONDS = 60;
 
-function buildSystemPrompt(targetDurationSeconds: number): string {
+// Exported for tests/methodology.test.ts — see planning.ts's matching export
+// for why.
+export function buildSystemPrompt(targetDurationSeconds: number): string {
   const targetWords = Math.round(targetDurationSeconds * WORDS_PER_SECOND);
   return `You are a scriptwriter for short narrated whiteboard-style explainer videos.
 Given a short topic, write a complete narration script a voice actor would read aloud —
@@ -40,7 +43,9 @@ Rules:
 - Be concrete and specific. Prefer real, checkable facts and specific details over vague
   generalities. If you are not confident a specific fact is accurate, phrase it more generally
   rather than inventing a precise-sounding but unverified detail.
-- Stay strictly on the given topic. Do not wander into a different subject.`;
+- Stay strictly on the given topic. Do not wander into a different subject.
+
+${SCRIPTWRITING_METHODOLOGY_RULES}`;
 }
 
 /**

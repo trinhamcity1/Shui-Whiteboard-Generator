@@ -9,7 +9,9 @@ design-system doc established for palette and layout.
 
 Prepared by: product owner, from the retention/teaching-technique research session ·
 for: Shui WG engineering · status: locked reference — Part I is the contract,
-Part II is what's already built vs. what still needs building
+Part II is what's already built vs. what still needs building. As of the
+`src/schema/methodology.ts` build (Part II below), rules 1, 3, 4, 5, 6, and 8 are
+implemented as real prompt text in `planning.ts`; 1, 7, and 8 in `scriptWriting.ts`.
 
 ## Why this document exists
 
@@ -159,21 +161,23 @@ exists.
 
 | # | Technique | Status |
 |---|-----------|--------|
-| 1 | Retrieval practice | **Present** (quiz generation exists) — **not yet connected**: nothing today makes the planner write narration with its own quiz question already in mind. Needs a planner-prompt rule. |
+| 1 | Retrieval practice | **Built** — `PLANNING_METHODOLOGY_RULES` requires the planner to identify the script's single most quiz-able fact and confirm a scene states it plainly; `SCRIPTWRITING_METHODOLOGY_RULES` requires the narration itself to state that fact in one self-contained, retrieval-ready sentence. |
 | 2 | Spaced repetition | **Out of scope for WG** — lives in Shui's SM-2 system. WG's only obligation is narration/quiz wording consistency (see #1). |
-| 3 | Dual coding | **Present** ("default to an image" rule) — **partially connected**: the rule ensures an image exists, not that it depicts the exact claim being narrated at that moment. Needs tightening. |
-| 4 | Segmenting/chunking | **Present structurally** (one action per beat) — **not enforced at the content level**: no rule yet catches a narration sentence carrying two facts into one scene. Needs a planner-prompt rule. |
-| 5 | Signaling/cueing | **Present mechanically** (decoration system exists) — **not connected to a purpose rule**: decorations are currently justified by "energy," not by "this is the one fact to remember." Needs a planner-prompt rule. |
-| 6 | Contrast/comparison | **Present as templates** (comparison types, X/check pairing) — **not proactively reached for**: nothing tells the planner to look for a misconception to contrast against. Needs a planner-prompt rule. |
-| 7 | Concrete framing | **Not present** — this is entirely new; needs a `scripting.ts` prompt rule (narration generation), not just a planning.ts one. |
-| 8 | Narrative hook | **Loosely present** (stylistic convention) — needs to become an explicit, checkable planner rule instead of an implicit preference. |
+| 3 | Dual coding | **Built, tightened** — `PLANNING_METHODOLOGY_RULES` adds the "muted viewer" test: an image only counts as dual coding if it depicts the exact claim in that scene's coversText, not a generic mood visual for the topic. |
+| 4 | Segmenting/chunking | **Built** — `PLANNING_METHODOLOGY_RULES` calls out the concrete failure mode directly: a coversText span joined by "and" across two distinct claims must become two scenes, not one compound bullet/node label. |
+| 5 | Signaling/cueing | **Built, and made compatible with the Phase 7 diagram library** — the rule reserves a sketchDiagram node's `emphasis` field (positive/negative/accentN, from `src/schema/diagram.ts`) and the `xMark`/`checkmark` decorations for the exact fact being cued, never for visual variety. This is the same ink-first, semantic-only color discipline the diagram library already enforces at the schema level (a node has no color unless emphasis is set) — Phase 6 just gives that mechanism its retention-purpose rule instead of leaving it a purely visual one. |
+| 6 | Contrast/comparison | **Built, and mapped onto specific Phase 7 diagram kinds** — the rule tells the planner to reach proactively for a misconception → correction beat using the `comparison` node-sequence kind (one node emphasis:"positive", one "negative"), and explicitly rules out `venn` for this — venn is reserved for genuine set overlap, not a right/wrong pair, a distinction that only exists now that both kinds are real, separate options in the library. |
+| 7 | Concrete framing | **Built** — `SCRIPTWRITING_METHODOLOGY_RULES` requires narration to name actual people/actions/objects instead of abstractions, in `scriptWriting.ts`'s prompt (narration generation happens before planning, so this rule has to live there, not in `planning.ts`). |
+| 8 | Narrative hook | **Built, in both prompts** — `SCRIPTWRITING_METHODOLOGY_RULES` asks the narration itself to open on a stake rather than a definition; `PLANNING_METHODOLOGY_RULES` separately asks the planner to check the actual opening scene against that same standard, since a plan can still open flat even when the narration didn't. |
 | 9 | Interleaving | **Out of scope** until a multi-video series/lesson-path feature exists. Recorded for that future design, not actionable today. |
 
-**The concrete next step this table implies**: a `planning.ts` (and light
-`scripting.ts`) prompt update implementing rules 1, 3 (tightened), 4, 5, 6, 7, and 8 —
-the technique is picked, the target file and the specific gap are both already known
-per row above, which is what makes this a scoped, buildable phase rather than an
-open-ended research topic.
+**Implementation**: `src/schema/methodology.ts` — two exported prompt-text
+constants, `PLANNING_METHODOLOGY_RULES` (spliced into `planning.ts`'s system
+prompt) and `SCRIPTWRITING_METHODOLOGY_RULES` (spliced into `scriptWriting.ts`'s).
+Covered by `tests/methodology.test.ts`, which asserts against the real
+`buildSystemPrompt()` output of both files, not just the constants in isolation —
+so a future edit that forgets to splice the block into the actual prompt fails a
+test instead of silently doing nothing.
 
 ## What this document is not
 

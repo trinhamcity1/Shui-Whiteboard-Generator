@@ -4,6 +4,7 @@ import { SceneAction, type SceneAction as SceneActionT } from "./scene";
 import { AVAILABLE_ICON_NAMES } from "../render/icons/registry";
 import { ASSET_MANIFEST, describeManifestEntry } from "../images/assetLibrary/manifest";
 import { collectDiagramNodes, isNodeSequenceSpec } from "./diagram";
+import { PLANNING_METHODOLOGY_RULES } from "./methodology";
 
 export interface ScenePlanningResult {
   actions: SceneActionT[];
@@ -109,7 +110,11 @@ function buildAssetCatalog(): string {
   }).join("\n");
 }
 
-function buildSystemPrompt(estimatedDurationSeconds: number): string {
+// Exported for tests/methodology.test.ts, which verifies the Phase 6
+// methodology rules actually land in the real prompt sent to the model —
+// not just that methodology.ts's constants contain the right text in
+// isolation.
+export function buildSystemPrompt(estimatedDurationSeconds: number): string {
   return `You are planning the visual timeline for a whiteboard-style narrated video.
 Given a narration script, break it into a sequence of SceneAction objects that visually
 support the narration as it plays.
@@ -369,6 +374,8 @@ Rules:
   finalizing and trim the least essential scene if the total exceeds the estimate — a video that ends
   with dead scene time after the narration stops, or a scene still running after the narration ends, is
   a failed plan.
+
+${PLANNING_METHODOLOGY_RULES}
 
 Asset library (use "assetId" with one of these exact ids when it fits — do not invent an id that isn't listed):
 ${buildAssetCatalog()}
